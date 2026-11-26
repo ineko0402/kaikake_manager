@@ -1,0 +1,23 @@
+'use strict';
+const $=id=>document.getElementById(id);
+const form=$('form');let rows=[],selectedId=null,dirty=false;
+const keys=['code','name','payee_name','currency','bank_beneficiary_code','supplier_country','origin_country','shipping_port','main_business','is_active','default_settlement_method','payment_terms','invoice_number_template','message_format','message_prefix','message_separator','message_suffix'];
+function message(s,error=false){$('message').textContent=s;$('message').style.color=error?'#b13b3b':'#236d4b';}
+function confirmDiscard(){return !dirty || confirm('未保存の編集内容があります。破棄して移動しますか？');}
+function fill(row){HTMLFormElement.prototype.reset.call(form);for(const k of keys){const el=form.elements.namedItem(k);const value=row?.[k]??(k==='message_format'?'number':k==='message_separator'?' ':k==='is_active'?'1':k==='default_settlement_method'?'transfer':'');if(k==='currency' && value && !Array.from(el.options).some(o=>o.value===value)){el.add(new Option(value,value));}el.value=value;}syncToggle();selectedId=row?.id??null;$('editorTitle').textContent=row?`仕入先の編集：${row.code}`:'新規登録';dirty=false;message('');render();}
+function render(){const q=$('search').value.toLowerCase();const filtered=rows.filter(r=>r.code.toLowerCase().includes(q)||r.name.toLowerCase().includes(q));$('count').textContent=`${filtered.length} 件`;$('list').replaceChildren();for(const r of filtered){const b=document.createElement('button');b.type='button';b.className='supplier'+(r.id===selectedId?' active':'');const title=document.createElement('strong');title.textContent=`${r.code}　${r.name}`;const detail=document.createElement('small');detail.textContent=`${r.currency||'通貨未設定'} / ${r.is_active?'使用中':'未使用'}`;b.append(title,detail);b.addEventListener('click',()=>{if(confirmDiscard())fill(r);});$('list').append(b);}}
+async function api(url,options){const r=await fetch(url,options);const data=await r.json();if(!r.ok)throw Error(data.error||'通信エラー');return data;}
+async function refresh(){rows=await api('/api/suppliers');render();}
+function markDirty(){dirty=true;message('未保存の変更があります');}
+function syncToggle(){const enabled=form.elements.is_active.value==='1';$('activeToggle').checked=enabled;$('activeText').textContent=enabled?'使用する':'使用しない';}
+$('activeToggle').addEventListener('change',()=>{form.elements.is_active.value=$('activeToggle').checked?'1':'0';syncToggle();markDirty();});
+$('copySupplier').addEventListener('click',()=>{form.elements.payee_name.value=form.elements.name.value;markDirty();});
+$('defaultTerms').addEventListener('click',()=>{form.elements.payment_terms.value='月末締め・翌々月10日払い';markDirty();});
+for(const button of document.querySelectorAll('[data-token]'))button.addEventListener('click',()=>{const el=form.elements.invoice_number_template;const start=el.selectionStart??el.value.length;const end=el.selectionEnd??start;const token=button.dataset.token;el.setRangeText(token,start,end,'end');el.focus();markDirty();});
+$('new').addEventListener('click',()=>{if(confirmDiscard()){fill(null);supplierTab(0)}});$('discard').addEventListener('click',()=>{if(confirmDiscard())fill(rows.find(r=>r.id===selectedId));});$('search').addEventListener('input',render);
+form.addEventListener('input',()=>{dirty=true;message('未保存の変更があります');});form.addEventListener('change',()=>{dirty=true;message('未保存の変更があります');});
+form.addEventListener('submit',async e=>{e.preventDefault();const obj={};for(const k of keys)obj[k]=form.elements[k].value;obj.is_active=obj.is_active==='1';obj.currency=obj.currency.toUpperCase().trim();const button=$('save');button.disabled=true;try{const saved=await api(selectedId?`/api/suppliers/${selectedId}`:'/api/suppliers',{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)});await refresh();fill(saved);message('保存しました');}catch(e){message(e.message,true);}finally{button.disabled=false;}});
+window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
+refresh().catch(e=>message('一覧の取得に失敗しました: '+e.message,true));
+
+const tabs=document.createElement('div');tabs.className='actions';tabs.innerHTML='<button type="button">仕入先登録</button><button type="button">仕入先管理</button>';document.querySelector('.heading').after(tabs);function supplierTab(n){document.querySelector('.listpanel').style.display=n?'':'none';document.querySelector('.editor').style.display=n?'none':'';document.querySelector('.content').style.display='block';}tabs.children[0].onclick=()=>{if(confirmDiscard()){fill(null);supplierTab(0)}};tabs.children[1].onclick=()=>{if(confirmDiscard()){fill(null);supplierTab(1);refresh()}};document.querySelector('#list').addEventListener('click',()=>{document.querySelector('.editor').style.display='';});supplierTab(1);

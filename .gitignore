@@ -1,0 +1,30 @@
+# 業務データ・バックアップ
+data/
+backup/
+backups/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# Node.js
+node_modules/
+
+# 環境設定・機密情報
+.env
+.env.*
+!.env.example
+
+# ログ・一時ファイル
+*.log
+*.tmp
+
+# 配布ファイル
+*.zip
+dist/
+
+# Windows
+Thumbs.db
+Desktop.ini
