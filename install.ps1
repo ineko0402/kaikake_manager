@@ -16,7 +16,7 @@ if (Test-Path (Join-Path $dest 'server.js')) {
   New-Item -ItemType Directory -Path $dest -Force | Out-Null
 }
 # Copy only application files; data/ and backup/ are NEVER overwritten.
-foreach ($file in @('server.js','business-api.js','schema.sql','backup-db.js','restore-db.js','起動.bat','README.md','STATE.md')) {
+foreach ($file in @('server.js','business-api.js','schema.sql','backup-db.js','restore-db.js','create-test-db.mjs','テスト用DB作成.bat','起動.bat','README.md','STATE.md')) {
   Copy-Item (Join-Path $source $file) (Join-Path $dest $file) -Force
 }
 $publicDest = Join-Path $dest 'public'
