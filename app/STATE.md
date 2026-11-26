@@ -324,3 +324,9 @@
 - DB移行408：suppliersにmessage_format/message_prefix/message_separator/message_suffix、paymentsにremittance_messageを追加。既存データは保持。Excelコピー維持。
 - 構文・新規DBでのAPI部分決済とメッセージ保存確認済み。ブラウザ・Windows・既存DB移行の実機確認は未実施。
 - ユーザー確認は原則5項目以内。
+
+### v0.4.8 回帰テスト用DB
+
+- `node create-test-db.mjs [出力フォルダ]` で架空データ入りの `kaikake_test.db` を生成する。既定の出力先はアプリ直下の `test-db/`。同名ファイルがある場合は上書きしない。
+- 一時フォルダでv0.4.8のDB初期化と業務APIを実行し、SQLiteの整合性と外部キーを検査してから出力する。業務DBとバックアップは生成処理から独立させる。
+- 仕入の枝番・未紐付け・INVOICE紐付け、部分送金、前払、相殺、返品、取消済み決済、保存済み送金メッセージ、要望の対応状況を含む。仕入・送金実績の基準月は2026年11月。

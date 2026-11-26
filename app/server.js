@@ -104,6 +104,10 @@ async function start(){
   const daily=fs.readdirSync(folder).filter(x=>/^kaikake_daily_\d{4}-\d{2}-\d{2}\.db$/.test(x)).sort().reverse();
   for(const old of daily.slice(30))fs.unlinkSync(path.join(folder,old));
  }
- server.listen(PORT,'127.0.0.1',()=>console.log(`買掛管理 v0.4.8: http://127.0.0.1:${PORT}`));
+ server.listen(PORT,'127.0.0.1',()=>{
+  const port=server.address().port;
+  console.log(`買掛管理 v0.4.8: http://127.0.0.1:${port}`);
+  process.send?.({port});
+ });
 }
 start().catch(e=>{console.error('起動時バックアップ失敗:',e);process.exitCode=1;db.close()});
