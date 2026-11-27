@@ -36,21 +36,10 @@ body {
   padding: 1px;
 }
 
-.supplier-picker,
 .payment-editor {
   display: grid;
   gap: 12px;
   align-items: start;
-}
-
-.supplier-picker {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-width: 660px;
-}
-
-.supplier-picker small {
-  grid-column: 1 / -1;
-  min-height: 1em;
 }
 
 .payment-editor {
@@ -132,10 +121,6 @@ body {
   .layout > .sidebar > button {
     width: auto;
   }
-
-  .supplier-picker {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 #invoicePurchaseDetails[hidden],
@@ -180,4 +165,305 @@ summary {
 
 .flowCard b {
   grid-row: 1;
+}
+
+#voucherDialog {
+  width: min(850px, 94vw);
+  max-height: 92vh;
+}
+
+#voucherSheet {
+  overflow-wrap: anywhere;
+}
+
+#voucherSheet table:first-of-type th {
+  white-space: nowrap;
+}
+
+#voucherSheet .voucher-nowrap {
+  white-space: nowrap;
+}
+
+#voucherSheet .voucher-amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.voucher-rate {
+  display: block;
+}
+
+.voucher-note {
+  white-space: pre-wrap;
+}
+
+.voucher-month {
+  margin-bottom: 12px;
+}
+
+#invoiceReferenceRate {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.9em;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body:has(#voucherDialog[open]) {
+    display: block;
+    height: auto;
+    overflow: visible;
+    color: black;
+    background: white;
+  }
+
+  body:has(#voucherDialog[open]) > :not(#voucherDialog),
+  #voucherDialog .voucher-controls {
+    display: none !important;
+  }
+
+  #voucherDialog[open] {
+    position: static;
+    inset: auto;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+
+  #voucherDialog::backdrop {
+    background: transparent;
+  }
+
+  #voucherSheet {
+    font-size: 9pt;
+    line-height: 1.3;
+  }
+
+  #voucherTitle {
+    font-size: 14pt;
+    margin: 0 0 4mm;
+  }
+
+  #voucherSheet table {
+    font-size: inherit;
+  }
+
+  #voucherSheet th,
+  #voucherSheet td {
+    padding: 3px 5px;
+    vertical-align: top;
+    border: 1px solid #777;
+    color: black;
+    background: white;
+  }
+
+  #voucherSheet thead {
+    display: table-header-group;
+  }
+  #voucherSheet tr {
+    break-inside: avoid;
+  }
+}
+
+/* A shared height for standard controls, with room for multiline labels. */
+body {
+  --control-min-height: 36px;
+}
+
+body button:not(.flowCard):not(.supplier) {
+  min-height: var(--control-min-height);
+  margin-block: 0;
+  padding-block: 6px;
+  line-height: 20px;
+}
+
+body .tabs {
+  flex-wrap: wrap;
+}
+
+.page-heading h1 {
+  margin: 0;
+  margin-inline-end: auto;
+}
+
+.voucher-month {
+  align-items: center;
+}
+
+.voucher-month input[type='month'] {
+  width: auto;
+  min-height: var(--control-min-height);
+  margin: 0;
+  padding: 6px 9px;
+}
+
+.advance-workflow h2 {
+  margin-top: 16px;
+}
+
+.advance-workflow li {
+  margin-block: 6px;
+}
+
+#invoiceArrivalChoices {
+  max-height: 32vh;
+}
+
+.page-heading h2 {
+  margin: 0;
+  margin-inline-end: auto;
+}
+
+.invoice-number input {
+  margin: 0;
+}
+
+#applyInvoiceTemplate {
+  min-width: var(--control-min-height);
+  padding-inline: 7px;
+}
+
+.workflow.workflow-paths {
+  max-width: 850px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.workflow-path .flowCard {
+  margin-block: 6px;
+}
+
+.workflow-path h3 {
+  font-size: 13px;
+  margin: 12px 0 4px;
+}
+
+#dashLinks:not(:empty) {
+  margin-top: 12px;
+}
+
+@media (max-width: 800px) {
+  .workflow.workflow-paths {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.invoice-savebar {
+  gap: 8px 12px;
+  margin: 0;
+}
+
+#invoiceSaveStatus {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.layout,
+.layout > main,
+#invoiceRegistration,
+#invoiceForm {
+  min-width: 0;
+}
+
+body > header {
+  min-width: 0;
+  gap: 8px;
+}
+
+body > header > div {
+  min-width: 0;
+}
+
+.invoice-heading {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #f4f6f9;
+  padding-bottom: 6px;
+}
+
+.invoice-heading h1 {
+  margin: 0;
+}
+
+.invoice-savebar[hidden] {
+  display: none;
+}
+
+#invoiceForm :is(input, select) {
+  scroll-margin-top: 155px;
+}
+
+#invoiceForm .invoice-fields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+}
+
+.invoice-amount {
+  display: grid;
+  grid-template-columns: minmax(0, 5em) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.invoice-fields > :is(#purchaseDifference, #invoiceReferenceRate) {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+#purchaseDifference:empty {
+  display: none;
+}
+
+.supplier-picker {
+  display: block;
+  position: relative;
+  max-width: 460px;
+}
+
+.supplier-picker [role='listbox'] {
+  position: absolute;
+  inset-inline: 0;
+  z-index: 2;
+  max-height: min(240px, 35vh);
+  overflow: auto;
+  border: 1px solid #b8c4d1;
+  border-radius: 5px;
+  background: white;
+}
+
+.supplier-picker [role='listbox'] button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 0;
+}
+
+.supplier-picker [role='listbox'] button:is(:hover, [aria-selected='true']) {
+  background: #dce8f6;
+}
+
+.supplier-picker [role='status'] {
+  display: block;
+}
+
+.supplier-picker [role='status']:empty {
+  display: none;
+}
+
+.payment-fields > .supplier-picker {
+  grid-column: 1 / -1;
 }

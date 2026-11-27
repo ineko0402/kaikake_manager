@@ -1,6 +1,5 @@
 import { Component } from './ui/component.js';
 import { api } from './ui/api.js';
-import { esc } from './ui/presenter.js';
 import { tabs } from './ui/tabs.js';
 import { filters } from './ui/filters.js';
 import { purchases } from './ui/purchases.js';
@@ -11,6 +10,7 @@ import { backup } from './ui/backup.js';
 import { feedback } from './ui/feedback.js';
 import { supplier } from './ui/supplier.js';
 import { dashboard } from './ui/dashboard.js';
+import { voucherWorksheet } from './ui/worksheet.js';
 
 const model = { suppliers: [], purchases: [], invoices: [], payments: [], adjustments: [] };
 const today = new Date().toLocaleDateString('sv-SE');
@@ -51,6 +51,7 @@ class AppMediator {
       backup: backup(panels.backup),
       feedback: feedback(panels.feedback, navigation),
     };
+    voucherWorksheet(this.#root, today);
     for (const nav of view.all('[data-page]')) {
       navigation.on(nav, 'click', 'openPage', () => navigation.emit('navigate', { page: nav.dataset.page }));
     }
@@ -60,6 +61,7 @@ class AppMediator {
           page: nav.dataset.flow,
           tab: Number(nav.dataset.tab),
           plan: nav.dataset.flow === 'transfers',
+          method: nav.dataset.method,
         }),
       );
     }
@@ -67,28 +69,49 @@ class AppMediator {
       if (input.name !== 'due_date') input.value = today;
     }
     view.observeUnload();
+    view.observeHistory();
   }
 
   async start() {
-    await this.refresh();
-    await Promise.all([this.#screens.transfers.load(), this.#screens.backup.load()]);
+    const saved = this.#root.view.historyPage();
+    if (saved) await this.navigate(saved, true);
+    else {
+      this.#root.view.saveHistoryPage({ page: this.#page }, true);
+      await this.refresh();
+    }
+    await this.#screens.backup.load();
+  }
+
+  #savePage(filter) {
+    const view = this.#root.view;
+    const page = this.#page;
+    const tab = this.#screens[page]?.selectedTab?.() ?? this.#tabs.selected(page);
+    const current = view.historyPage();
+    if (current?.page === page && current.tab === tab && (filter === undefined || current.filter === filter))
+      return;
+    view.saveHistoryPage({ page, tab, filter });
   }
 
   status(text, error = false) {
     this.#root.view.render({ status: { text, className: error ? 'status error' : 'status' } });
   }
 
-  async navigate({ page, tab, filter, plan, currentMonth }) {
+  async navigate({ page, tab, filter, plan, currentMonth, method }, restoring = false) {
     if (!this.#root.view.find(page)?.classList.contains('page')) return;
     if (page !== this.#page) this.#root.view.scope.querySelector('main').scrollTop = 0;
     this.#page = page;
     if (filter !== undefined) this.#filters.reset(tableByPage[page], filter);
-    if (tab !== undefined) this.#tabs.set(page, tab);
+    if (tab !== undefined) {
+      if (this.#screens[page]?.setTab) this.#screens[page].setTab(tab);
+      else this.#tabs.set(page, tab);
+    }
     if (plan) this.#screens.transfers.plan(currentMonth);
+    if (method) this.#screens[page]?.setMethod?.(method);
     for (const section of this.#root.view.all('.page'))
       section.classList.toggle('active', section.id === page);
     for (const nav of this.#root.view.all('[data-page]'))
       nav.classList.toggle('active', nav.dataset.page === page);
+    if (!restoring) this.#savePage(filter);
     this.status('');
     await this.refresh();
     if (page !== this.#page) return;
@@ -102,18 +125,6 @@ class AppMediator {
     const lists = await Promise.all(keys.map((key) => api('/api/' + key)));
     if (request !== this.#load) return;
     for (const [index, key] of keys.entries()) model[key] = lists[index];
-    const options =
-      '<option value="">選択してください</option>' +
-      model.suppliers
-        .map(
-          (supplier) => `<option value="${supplier.id}">${esc(supplier.code + ' ' + supplier.name)}</option>`,
-        )
-        .join('');
-    for (const select of this.#root.view.all('select.suppliers')) {
-      const selected = select.value;
-      select.innerHTML = options;
-      select.value = selected;
-    }
     for (const name of ['dashboard', 'purchases', 'invoices', 'payments', 'supplier'])
       this.#screens[name].render();
     this.#filters.apply();
@@ -127,6 +138,14 @@ class AppMediator {
         return this.status(detail.text, detail.error);
       case 'navigate':
         return this.navigate(detail).catch((error) => this.status(error.message, true));
+      case 'tabChanged':
+        if (detail === this.#page) this.#savePage();
+        return;
+      case 'restorePage':
+        for (const dialog of this.#root.view.all('dialog[open]')) dialog.close();
+        return this.navigate(detail ?? { page: 'dashboard' }, true).catch((error) =>
+          this.status(error.message, true),
+        );
       case 'refresh':
         return this.refresh();
       case 'filter':

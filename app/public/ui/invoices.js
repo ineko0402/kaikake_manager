@@ -1,34 +1,15 @@
+import { supplierPicker } from './supplierpicker.js';
 import { inPeriod, updatePeriodControls } from './filters.js';
 import { Selection } from './selection.js';
 import { api, post } from './api.js';
-import { esc, table, td, money, minorText, invoiceTable } from './presenter.js';
+import { esc, table, td, money, minorText, invoiceTable, invoiceReferenceRate } from './presenter.js';
 export function invoices(component, model, today, filterStates) {
   const view = component.view;
   const selection = component.child('purchaseSelection', view.find('purchaseChoices'));
   const $ = (id) => view.find(id);
   const values = (form) => view.readForm(form);
   const form = $('invoiceForm');
-  const search = $('invoiceSupplierSearch');
-  const supplierPicker = component.child('invoiceSupplierSearch', search.closest('.supplier-picker'));
-  function renderSupplierOptions() {
-    const select = form.elements.supplier_id;
-    const selected = select.value;
-    const normalize = (value) => value.normalize('NFKC').trim().toLowerCase();
-    const terms = normalize(search.value).split(/\s+/).filter(Boolean);
-    const matches = model.suppliers.filter(({ code, name }) =>
-      terms.every((term) => normalize(code + ' ' + name).includes(term)),
-    );
-    const matchingIds = new Set(matches.map((supplier) => supplier.id));
-    const options = [new Option('選択してください', '')];
-    for (const { id, code, name } of model.suppliers) {
-      const matchesSearch = matchingIds.has(id);
-      if (matchesSearch || String(id) === selected) options.push(new Option(code + ' ' + name, id));
-    }
-    select.replaceChildren(...options);
-    select.value = selected;
-    $('invoiceSupplierCount').textContent = terms.length ? matches.length + '件一致' : '';
-  }
-  supplierPicker.on(search, 'input', 'filterInvoiceSuppliers', renderSupplierOptions);
+  const supplier = supplierPicker(component, $('invoiceSupplierPicker'), () => model.suppliers);
   const changeSupplier = () => {
     const supplier = model.suppliers.find((row) => row.id === Number(form.elements.supplier_id.value));
     if (
@@ -42,7 +23,32 @@ export function invoices(component, model, today, filterStates) {
   component.on(form.elements.supplier_id, 'change', 'invoiceSupplier', changeSupplier);
   const msg = (text, error = false) => component.emit('status', { text, error });
   const refresh = () => component.emit('refresh');
+  function saveStatus(text, error = false) {
+    view.render({ invoiceSaveStatus: { text, className: error ? 'error' : '' } });
+  }
+  for (const field of form.elements) {
+    if (!field.required) continue;
+    component.on(field, 'invalid', 'showMissingInvoiceField', () => {
+      if (form.querySelector(':invalid') !== field) return;
+      const names = {
+        supplier_id: '仕入先',
+        invoice_number: 'INVOICE番号',
+        invoice_date: 'INVOICE日付',
+        total: '請求総額',
+      };
+      const name = names[field.name];
+      saveStatus(
+        field === supplier.input
+          ? field.validationMessage
+          : name
+            ? name + (field.tagName === 'SELECT' ? 'を選択してください' : 'を入力してください')
+            : field.validationMessage,
+        true,
+      );
+    });
+  }
   component.on($('invoiceForm'), 'submit', 'saveInvoice', async (e) => {
+    saveStatus('');
     try {
       let v = values(e.target);
       v.purchase_ids = [...chosenPurchases.ids()];
@@ -51,9 +57,10 @@ export function invoices(component, model, today, filterStates) {
         if (!view.confirm(d.warnings.join('\n') + '\n登録しますか？')) return;
         d = await post('/api/invoices', { ...v, override: true });
       }
-      msg('INVOICE #' + d.id + ' を登録しました');
+      saveStatus('INVOICE #' + d.id + ' を登録しました');
       e.target.reset();
-      e.target.elements.supplier_id.value = v.supplier_id;
+      form.elements.supplier_id.value = v.supplier_id;
+      supplier.restoreSelection();
       e.target.elements.invoice_date.value = today;
       chosenPurchases.clear();
       choiceSupplier = null;
@@ -63,7 +70,7 @@ export function invoices(component, model, today, filterStates) {
       renderPurchaseChoices();
       updateDifference(e.target, e.target.elements.currency.value);
     } catch (e) {
-      msg(e.message, true);
+      saveStatus(e.message, true);
     }
   });
   component.on($('closeInvoiceEdit'), 'click', 'closeInvoiceEdit', () => {
@@ -93,6 +100,38 @@ export function invoices(component, model, today, filterStates) {
       msg(e.message, true);
     }
   });
+  function renderArrivalChoices(invoice) {
+    const rows = model.purchases.filter((row) => row.supplier_id === invoice.supplier_id && !row.invoice_id);
+    const html = table(
+      ['選択', '発注番号', '枝番', '仕入日', '仕入額'],
+      rows.map(
+        (row) => `<tr><td><input type="checkbox" name="purchase_ids" value="${row.id}"
+        aria-label="${esc(row.order_number)} 枝番${row.branch_number}"></td>
+        <td>${esc(row.order_number)}</td><td>${row.branch_number}</td>
+        <td>${esc(row.purchase_date)}</td><td>${money(row.amount_jpy, 'JPY')}</td></tr>`,
+      ),
+    );
+    view.render({
+      invoiceArrivalChoices: rows.length
+        ? { html }
+        : { text: 'この仕入先に未紐付けの仕入明細はありません。' },
+      linkArrival: { disabled: !rows.length },
+    });
+  }
+
+  component.on($('invoiceArrivalForm'), 'submit', 'linkArrival', async ({ target }) => {
+    const id = Number($('invoiceEditForm').elements.id.value);
+    const purchaseIds = Array.from(target.querySelectorAll('[name=purchase_ids]:checked'), (input) =>
+      Number(input.value),
+    );
+    if (!purchaseIds.length) return msg('紐付ける仕入明細を選択してください', true);
+    const result = await post('/api/invoices/' + id + '/purchases', { purchase_ids: purchaseIds });
+    await refresh();
+    const invoice = model.invoices.find((row) => row.id === id);
+    if (invoice && Number($('invoiceEditForm').elements.id.value) === id) renderArrivalChoices(invoice);
+    msg(`仕入明細 ${result.linked}件を紐付けました`);
+  });
+
   component.on($('applyInvoiceTemplate'), 'click', 'applyInvoiceTemplate', () => {
     const f = $('invoiceForm'),
       s = model.suppliers.find((x) => x.id === Number(f.elements.supplier_id.value));
@@ -135,12 +174,19 @@ export function invoices(component, model, today, filterStates) {
           'USD',
       ),
     );
+  let workflowMethod;
+  component.on(form.elements.settlement_method, 'change', 'changeInvoiceMethod', () => {
+    workflowMethod = undefined;
+  });
   component.on($('invoiceForm').elements.supplier_id, 'change', 'applySupplierMethod', () => {
     const s = model.suppliers.find((x) => x.id === Number($('invoiceForm').elements.supplier_id.value));
-    $('invoiceForm').elements.settlement_method.value = s?.default_settlement_method || 'transfer';
+    $('invoiceForm').elements.settlement_method.value =
+      workflowMethod ?? s?.default_settlement_method ?? 'transfer';
+    workflowMethod = undefined;
   });
   const chosenPurchases = new Selection();
   let choiceSupplier = null;
+  let hadPurchaseCandidates = false;
   function selectedPurchases() {
     return model.purchases.filter(
       (p) =>
@@ -155,8 +201,10 @@ export function invoices(component, model, today, filterStates) {
     const candidates = model.purchases.filter((p) => !p.invoice_id && p.supplier_id === sid);
     const details = $('invoicePurchaseDetails');
     details.hidden = !sid;
+    const hasCandidates = candidates.length > 0;
+    if (choiceSupplier !== sid || (!hadPurchaseCandidates && hasCandidates)) details.open = hasCandidates;
+    hadPurchaseCandidates = hasCandidates;
     if (choiceSupplier !== sid) {
-      details.open = false;
       choiceSupplier = sid;
       chosenPurchases.clear();
       $('onlyChosen').checked = false;
@@ -248,6 +296,18 @@ export function invoices(component, model, today, filterStates) {
     $('applyPurchaseDate').disabled = !date;
     $('applyPurchaseDate').textContent = date ? `仕入日 ${date} を適用` : '仕入日を適用';
     const raw = f.elements.total.value.trim().replace(/,/g, '');
+    const currency = f.elements.currency.value;
+    const validForeignTotal = /^-?\d+(?:\.\d{1,2})?$/.test(raw);
+    const rate =
+      rows.length && validForeignTotal
+        ? invoiceReferenceRate(sum, Math.round(Number(raw) * 100), currency)
+        : '';
+    view.render({
+      invoiceReferenceRate: {
+        hidden: !rate,
+        text: rate ? '参考レート（紐付け仕入合計 ÷ 請求総額） ' + rate : '',
+      },
+    });
     $('purchaseDifference').textContent =
       f.elements.currency.value === 'JPY' &&
       rows.length &&
@@ -258,6 +318,7 @@ export function invoices(component, model, today, filterStates) {
   }
   component.on($('onlyChosen'), 'change', 'showSelectedPurchases', renderPurchaseChoices);
   component.on($('invoiceForm'), 'input', 'updatePurchaseSummary', updatePurchaseSummary);
+  component.on($('invoiceForm').elements.currency, 'change', 'updateInvoiceRate', updatePurchaseSummary);
   component.on($('applyPurchaseDate'), 'click', 'applyPurchaseDate', () => {
     const d = selectedPurchases()
       .map((p) => p.purchase_date)
@@ -269,7 +330,7 @@ export function invoices(component, model, today, filterStates) {
     msg('仕入日 ' + d + ' を適用しました');
   });
   function render() {
-    renderSupplierOptions();
+    supplier.refresh();
     view.render({ invoiceTable: { html: invoiceTable(model.invoices) } });
     view.all('.editInvoice').forEach((b) =>
       component.on(b, 'click', 'editInvoice', () => {
@@ -296,6 +357,8 @@ export function invoices(component, model, today, filterStates) {
           !!i.difference_reason ||
           !!i.due_override_reason ||
           i.usage_class !== 'purchase';
+        $('invoiceArrivalDetails').open = false;
+        renderArrivalChoices(i);
         $('invoiceEditPanel').hidden = false;
         updateDifference(f, i.currency);
         $('invoiceEditPanel').scrollIntoView({ behavior: 'smooth' });
@@ -317,5 +380,12 @@ export function invoices(component, model, today, filterStates) {
     );
     renderPurchaseChoices();
   }
-  return { render, filter: renderPurchaseChoices };
+  return {
+    render,
+    filter: renderPurchaseChoices,
+    setMethod(method) {
+      workflowMethod = method;
+      form.elements.settlement_method.value = method;
+    },
+  };
 }

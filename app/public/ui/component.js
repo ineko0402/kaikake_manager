@@ -36,6 +36,10 @@ class PassiveView {
     return navigator.clipboard.writeText(text);
   }
 
+  print() {
+    window.print();
+  }
+
   download(text, filename) {
     const url = URL.createObjectURL(new Blob(['\ufeff', text], { type: 'text/plain;charset=utf-8' }));
     const link = this.create('a');
@@ -52,6 +56,20 @@ class PassiveView {
       if (text !== undefined) element.textContent = text;
       Object.assign(element, properties);
     }
+  }
+
+  observeHistory() {
+    window.addEventListener('popstate', (event) => this.#notify('restorePage', event.state?.kaikake));
+  }
+
+  historyPage() {
+    return window.history.state?.kaikake;
+  }
+
+  saveHistoryPage(page, replace = false) {
+    const state = { kaikake: page };
+    if (replace) window.history.replaceState(state, '');
+    else window.history.pushState(state, '');
   }
 
   observeUnload() {
@@ -71,6 +89,9 @@ class PassiveView {
           target: event.target,
           currentTarget: element,
           shiftKey: event.shiftKey,
+          key: event.key,
+          isComposing: event.isComposing,
+          preventDefault: () => event.preventDefault(),
         };
         for (const token of bindings.get(type)) this.#notify(token, input);
       });

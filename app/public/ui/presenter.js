@@ -44,10 +44,10 @@ export function purchaseTable(rows) {
 
 export function invoiceTable(rows) {
   return table(
-    ['ID', '仕入先', '番号', '請求日', '総額', '残高', '予定日', '操作'],
+    ['ID', '仕入先', '番号', '仕入の紐付け', '請求日', '総額', '残高', '予定日', '操作'],
     rows.map(
       (i) =>
-        `<tr><td>${i.id}</td><td>${esc(i.supplier_name)}</td><td>${esc(i.invoice_number)}</td><td>${i.invoice_date}</td><td>${money(i.total_minor, i.currency)}${i.difference_reason ? '<small style="display:block">' + esc(i.difference_reason) + '</small>' : ''}</td><td>${money(i.remaining_minor, i.currency)}</td><td>${i.due_date || '未設定'}</td><td><button class="editInvoice" data-id="${i.id}">編集</button><button class="cancelInvoice" data-id="${i.id}">取消</button></td></tr>`,
+        `<tr><td>${i.id}</td><td>${esc(i.supplier_name)}</td><td>${esc(i.invoice_number)}</td><td>${i.purchase_count ? `${i.purchase_count}件` : '<strong class="pill">未紐付け</strong>'}</td><td>${i.invoice_date}</td><td>${money(i.total_minor, i.currency)}${i.difference_reason ? '<small style="display:block">' + esc(i.difference_reason) + '</small>' : ''}</td><td>${money(i.remaining_minor, i.currency)}</td><td>${i.due_date || '未設定'}</td><td><button class="editInvoice" data-id="${i.id}">編集</button><button class="cancelInvoice" data-id="${i.id}">取消</button></td></tr>`,
     ),
   );
 }
@@ -127,4 +127,18 @@ export function transferHistory(actualRows) {
     actualTable: { html },
     copyActual: { disabled: !actualRows.length },
   };
+}
+
+export function invoiceReferenceRate(yen, totalMinor, currency) {
+  if (
+    currency === 'JPY' ||
+    !Number.isSafeInteger(yen) ||
+    !Number.isSafeInteger(totalMinor) ||
+    !yen ||
+    !totalMinor ||
+    Math.sign(yen) !== Math.sign(totalMinor)
+  )
+    return '';
+  const rate = yen / (totalMinor / 100);
+  return new Intl.NumberFormat('ja-JP', { maximumSignificantDigits: 8 }).format(rate) + ' 円 / ' + currency;
 }

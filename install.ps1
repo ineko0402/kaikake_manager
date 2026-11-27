@@ -1,4 +1,4 @@
-﻿# 買掛管理 v0.5.2 installer/updater. Run only from extracted release directory.
+﻿# 買掛管理 v0.5.3 installer/updater. Run only from extracted release directory.
 $ErrorActionPreference = 'Stop'
 $source = Join-Path $PSScriptRoot 'app'
 if (-not (Test-Path (Join-Path $source 'server.js'))) { throw 'app フォルダが見つかりません。ZIPをすべて展開してください。' }

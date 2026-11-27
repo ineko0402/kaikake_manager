@@ -80,8 +80,7 @@ export function filters(component, componentFor, model, today) {
       for (const tr of trs) {
         const x = map.get(tr.cells[0]?.textContent);
         if (!x) continue;
-        const linked =
-          id === 'invoiceTable' ? model.purchases.some((p) => p.invoice_id === x.id) : !!x.invoice_id;
+        const linked = id === 'invoiceTable' ? x.purchase_count > 0 : !!x.invoice_id;
         const tests = {
           unlinked: !linked,
           linked,
