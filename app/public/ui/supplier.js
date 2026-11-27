@@ -75,7 +75,10 @@ export function supplier(component, model) {
       detail.textContent = `${r.currency || '通貨未設定'} / ${r.is_active ? '使用中' : '未使用'}`;
       b.append(title, detail);
       component.on(b, 'click', 'editSupplier', () => {
-        if (confirmDiscard()) fill(r);
+        if (confirmDiscard()) {
+          fill(r);
+          view.scope.querySelector('.editor').style.display = '';
+        }
       });
       $('list').append(b);
     }
@@ -155,13 +158,14 @@ export function supplier(component, model) {
   });
 
   const tabs = view.create('div');
-  tabs.className = 'actions';
+  tabs.className = 'tabs';
   tabs.innerHTML = '<button type="button">仕入先登録</button><button type="button">仕入先管理</button>';
-  view.scope.querySelector('.heading').after(tabs);
+  view.scope.querySelector('h1').after(tabs);
   function supplierTab(n) {
     view.scope.querySelector('.listpanel').style.display = n ? '' : 'none';
     view.scope.querySelector('.editor').style.display = n ? 'none' : '';
-    view.scope.querySelector('.content').style.display = 'block';
+    view.scope.querySelector('.content').classList.toggle('registration', n === 0);
+    [...tabs.children].forEach((button, index) => button.classList.toggle('active', index === n));
   }
   component.on(tabs.children[0], 'click', 'supplierRegistrationTab', () => {
     if (confirmDiscard()) {
@@ -175,9 +179,6 @@ export function supplier(component, model) {
       supplierTab(1);
       return refresh();
     }
-  });
-  component.on(view.scope.querySelector('#list'), 'click', 'showSupplierEditor', () => {
-    view.scope.querySelector('.editor').style.display = '';
   });
   supplierTab(1);
   return { render, dirty: () => dirty };

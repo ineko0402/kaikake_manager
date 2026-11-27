@@ -8,6 +8,27 @@ export function invoices(component, model, today, filterStates) {
   const $ = (id) => view.find(id);
   const values = (form) => view.readForm(form);
   const form = $('invoiceForm');
+  const search = $('invoiceSupplierSearch');
+  const supplierPicker = component.child('invoiceSupplierSearch', search.closest('.supplier-picker'));
+  function renderSupplierOptions() {
+    const select = form.elements.supplier_id;
+    const selected = select.value;
+    const normalize = (value) => value.normalize('NFKC').trim().toLowerCase();
+    const terms = normalize(search.value).split(/\s+/).filter(Boolean);
+    const matches = model.suppliers.filter(({ code, name }) =>
+      terms.every((term) => normalize(code + ' ' + name).includes(term)),
+    );
+    const matchingIds = new Set(matches.map((supplier) => supplier.id));
+    const options = [new Option('選択してください', '')];
+    for (const { id, code, name } of model.suppliers) {
+      const matchesSearch = matchingIds.has(id);
+      if (matchesSearch || String(id) === selected) options.push(new Option(code + ' ' + name, id));
+    }
+    select.replaceChildren(...options);
+    select.value = selected;
+    $('invoiceSupplierCount').textContent = terms.length ? matches.length + '件一致' : '';
+  }
+  supplierPicker.on(search, 'input', 'filterInvoiceSuppliers', renderSupplierOptions);
   const changeSupplier = () => {
     const supplier = model.suppliers.find((row) => row.id === Number(form.elements.supplier_id.value));
     if (
@@ -245,6 +266,7 @@ export function invoices(component, model, today, filterStates) {
     msg('仕入日 ' + d + ' を適用しました');
   });
   function render() {
+    renderSupplierOptions();
     view.render({ invoiceTable: { html: invoiceTable(model.invoices) } });
     view.all('.editInvoice').forEach((b) =>
       component.on(b, 'click', 'editInvoice', () => {

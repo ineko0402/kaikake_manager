@@ -11,7 +11,22 @@ export function feedback(component, navigation) {
   let feedback = [];
   async function loadFeedback() {
     feedback = await api('/api/feedback');
-    view.render({ feedbackList: { html: feedbackTable(feedback) } });
+    render();
+  }
+  function visibleFeedback() {
+    const status = $('feedbackFilter').value;
+    const direction = $('feedbackSort').value === 'oldest' ? 1 : -1;
+    return feedback
+      .filter((row) => status === 'all' || Boolean(row.done) === (status === 'done'))
+      .sort((a, b) => direction * (a.created_at.localeCompare(b.created_at) || a.id - b.id));
+  }
+  function render() {
+    const rows = visibleFeedback();
+    view.render({
+      feedbackList: rows.length ? { html: feedbackTable(rows) } : { text: '対象の要望はありません。' },
+      exportFeedback: { disabled: !rows.length },
+      copyFeedback: { disabled: !rows.length },
+    });
     view.all('[data-feedback]').forEach((b) =>
       component.on(b, 'change', 'toggleFeedback', async () => {
         try {
@@ -37,12 +52,16 @@ export function feedback(component, navigation) {
       field('feedbackStatus').textContent = e.message;
     }
   });
-  component.on($('exportFeedback'), 'click', 'exportFeedback', () => {
-    const text = feedback
-      .filter((x) => !x.done)
+  component.on($('feedbackFilter'), 'change', 'filterFeedback', render);
+  component.on($('feedbackSort'), 'change', 'sortFeedback', render);
+  const exportText = () =>
+    visibleFeedback()
       .map((x) => `[${x.category}] ${x.page} / ${x.version} / ${x.created_at}\n${x.content}`)
       .join('\n\n');
-    view.download(text, '要望.txt');
+  component.on($('exportFeedback'), 'click', 'exportFeedback', () => view.download(exportText(), '要望.txt'));
+  component.on($('copyFeedback'), 'click', 'copyFeedback', async () => {
+    await view.copy(exportText());
+    msg('表示中の要望をコピーしました');
   });
   navigation.on(navigation.view.find('openFeedback'), 'click', 'openFeedback', () => {
     const current = navigation.view.scope.querySelector('.page.active');
@@ -50,6 +69,7 @@ export function feedback(component, navigation) {
       current.querySelector('.tabs button.active')?.textContent ||
       current.querySelector('h1')?.textContent ||
       '仕入先マスター';
+    field('feedbackForm').elements.category.value = '改善要望';
     field('feedbackStatus').textContent = '';
     dialogElement.showModal();
   });

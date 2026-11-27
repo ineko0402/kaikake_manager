@@ -113,17 +113,36 @@ try {
   if (process.env.KAIKAKE_PLAYWRIGHT) {
     const { chromium } = createRequire(import.meta.url)(process.env.KAIKAKE_PLAYWRIGHT);
     browser = await chromium.launch({ executablePath: process.env.KAIKAKE_CHROMIUM });
-    const page = await browser.newPage();
+    const page = await browser.newPage({
+      viewport: { width: 1280, height: 720 },
+      permissions: ['clipboard-read', 'clipboard-write'],
+    });
     const issues = [];
     page.on('pageerror', (error) => issues.push(error.message));
     await page.goto(base);
+    await page.locator('[data-page="workflow"]').click();
+    assert(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight));
+    assert.equal(await page.locator('header').evaluate((node) => node.getBoundingClientRect().top), 0);
     await page.locator('[data-page="invoices"]').click();
+    const supplierSearch = page.locator('#invoiceSupplierSearch');
+    await supplierSearch.fill('Ｔ００１ テスト商事');
+    assert.equal(await page.locator('#invoiceSupplierCount').innerText(), '1件一致');
+    assert.equal(await page.locator('#invoiceForm [name=supplier_id] option').count(), 2);
     await page.locator('#invoiceForm [name=supplier_id]').selectOption(String(suppliers[0].id));
+    await supplierSearch.fill('テスト工業');
+    assert.equal(await page.locator('#invoiceForm [name=supplier_id]').inputValue(), String(suppliers[0].id));
     await page.locator('#chooseVisible').click();
     assert.match(await page.locator('#chosenSummary').innerText(), /選択 1件/);
 
     await page.locator('[data-page="payments"]').click();
     await page.locator('#paymentForm [name=supplier_id]').selectOption(String(suppliers[0].id));
+    const [fields, allocations, submit] = await Promise.all(
+      ['.payment-fields', '.payment-allocation', '#paymentForm button[type=submit]'].map((selector) =>
+        page.locator(selector).boundingBox(),
+      ),
+    );
+    assert(allocations.x > fields.x && Math.abs(allocations.y - fields.y) < 5);
+    assert(submit.y + submit.height <= 720);
     const allocation = page.locator('#allocationChoices');
     await allocation.locator('.allocCheck').first().click();
     await allocation
@@ -162,6 +181,7 @@ try {
       assert.deepEqual(route, ['selectRow', 'handler']);
     }
     const frame = (await page.locator('iframe').count()) ? page.frameLocator('iframe') : page;
+    assert.equal(await page.locator('#supplier .tabs button.active').innerText(), '仕入先管理');
     await frame.locator('#list button').first().click();
     assert.match(await frame.locator('#editorTitle').innerText(), /T001/);
     await frame.locator('#form [name=message_prefix]').fill('CHECK ');
@@ -204,12 +224,31 @@ try {
     );
 
     await page.locator('#openFeedback').click();
+    assert.equal(await page.locator('#feedbackForm [name=category]').inputValue(), '改善要望');
     await page.locator('#feedbackForm textarea').fill('Browser regression case');
     await page.locator('#feedbackForm button').click();
     await page.getByText('要望を保存しました').waitFor();
     await page.locator('#openFeedback').click();
     await page.locator('#feedbackHistory').click();
     await page.getByText('Browser regression case').waitFor();
+    await page.locator('#feedbackSort').selectOption('oldest');
+    assert.match(await page.locator('#feedbackList tbody tr').first().innerText(), /未対応要望/);
+    await page.locator('#copyFeedback').click();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    assert.match(copied, /Browser regression case/);
+    assert.doesNotMatch(copied, /対応済み要望/);
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('#exportFeedback').click(),
+    ]);
+    assert.equal(download.suggestedFilename(), '要望.txt');
+    await page.locator('#feedbackFilter').selectOption('done');
+    assert.match(await page.locator('#feedbackList tbody').innerText(), /対応済み要望/);
+    assert.doesNotMatch(await page.locator('#feedbackList tbody').innerText(), /Browser regression case/);
+    await page.setViewportSize({ width: 390, height: 700 });
+    await page.locator('[data-page="payments"]').click();
+    assert(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight));
+    assert(await page.evaluate(() => document.documentElement.scrollWidth === innerWidth));
     assert.deepEqual(issues, []);
     console.log('Browser selection, filtering, remittance history and suppliers passed');
   }

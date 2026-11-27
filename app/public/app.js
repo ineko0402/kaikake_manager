@@ -80,6 +80,7 @@ class AppMediator {
 
   async navigate({ page, tab, filter, plan, currentMonth }) {
     if (!this.#root.view.find(page)?.classList.contains('page')) return;
+    if (page !== this.#page) this.#root.view.scope.querySelector('main').scrollTop = 0;
     this.#page = page;
     if (filter !== undefined) this.#filters.reset(tableByPage[page], filter);
     if (tab !== undefined) this.#tabs.set(page, tab);

@@ -1,4 +1,4 @@
-// 買掛管理アプリ v0.5.0
+// 買掛管理アプリ v0.5.1
 'use strict';
 const http = require('node:http');
 const fs = require('node:fs');
@@ -88,7 +88,7 @@ const server=http.createServer(async(req,res)=>{
    return send(res,200,saved);
   }
   if(req.method!=='GET')return send(res,405,{error:'許可されていない操作です'});
-  const files={__proto__:null,'/':'index.html','/index.html':'index.html','/app.js':'app.js','/style.css':'style.css'};
+  const files={__proto__:null,'/':'index.html','/index.html':'index.html','/app.js':'app.js','/style.css':'style.css','/layout.css':'layout.css'};
   const moduleFile=/^\/ui\/[a-z]+\.js$/.test(url.pathname) ? url.pathname.slice(1) : null;
   const file=files[url.pathname] || moduleFile;if(!file || !fs.existsSync(path.join(ROOT,'public',file))){res.writeHead(404);return res.end('Not Found');}
   const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8'};
@@ -107,7 +107,7 @@ async function start(){
  }
  server.listen(PORT,'127.0.0.1',()=>{
   const port=server.address().port;
-  console.log(`買掛管理 v0.5.0: http://127.0.0.1:${port}`);
+  console.log(`買掛管理 v0.5.1: http://127.0.0.1:${port}`);
   process.send?.({port});
  });
 }
