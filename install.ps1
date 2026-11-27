@@ -1,4 +1,4 @@
-﻿# 買掛管理 v0.1.2 installer/updater. Run only from extracted release directory.
+﻿# 買掛管理 v0.5.0 installer/updater. Run only from extracted release directory.
 $ErrorActionPreference = 'Stop'
 $source = Join-Path $PSScriptRoot 'app'
 if (-not (Test-Path (Join-Path $source 'server.js'))) { throw 'app フォルダが見つかりません。ZIPをすべて展開してください。' }
@@ -21,7 +21,13 @@ foreach ($file in @('server.js','business-api.js','schema.sql','backup-db.js','r
 }
 $publicDest = Join-Path $dest 'public'
 New-Item -ItemType Directory -Path $publicDest -Force | Out-Null
-Copy-Item (Join-Path $source 'public\*') $publicDest -Force
+Copy-Item (Join-Path $source 'public\*') $publicDest -Recurse -Force
+foreach ($obsolete in @('supplier.html','supplier.js')) {
+  $obsoletePath = Join-Path $publicDest $obsolete
+  if (Test-Path -LiteralPath $obsoletePath -PathType Leaf) {
+    Remove-Item -LiteralPath $obsoletePath -Force
+  }
+}
 $shortcutPath = Join-Path ([Environment]::GetFolderPath('Desktop')) '買掛管理.lnk'
 $wshell=New-Object -ComObject WScript.Shell
 $shortcut=$wshell.CreateShortcut($shortcutPath)
