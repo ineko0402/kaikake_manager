@@ -57,7 +57,7 @@ export function paymentTable(rows) {
     ['ID', '仕入先', '方法', '決済日', '金額', '未充当', '状態', '操作'],
     rows.map(
       (p) =>
-        `<tr><td>${p.id}</td><td>${esc(p.supplier_name)}</td><td>${esc(p.method)}</td><td>${p.payment_date}</td><td>${money(p.amount_minor, p.currency)}</td><td>${money(p.remaining_minor, p.currency)}</td><td>${p.status}</td><td>${p.status === 'active' ? `<button class="cancelPayment" data-id="${p.id}">取消</button>` : ''}</td></tr>`,
+        `<tr><td>${p.id}</td><td>${esc(p.supplier_name)}</td><td>${esc(p.method)}</td><td>${p.payment_date}</td><td>${money(p.amount_minor, p.currency)}</td><td>${money(p.remaining_minor, p.currency)}</td><td>${p.status}</td><td>${p.status === 'active' ? `<button type="button" class="printWorksheet" data-id="${p.id}">転記用紙</button> <button class="cancelPayment" data-id="${p.id}">取消</button>` : ''}</td></tr>`,
     ),
   );
 }

@@ -70,6 +70,22 @@ try {
     (await api('feedback')).map((row) => row.done),
     [0, 1],
   );
+  const payments = await api('payments');
+  const originalTransfer = payments.find((row) => row.method === 'transfer' && row.status === 'active');
+  const cancelledTransfer = payments.find((row) => row.status === 'cancelled');
+  const worksheet = await api(`payments/${originalTransfer.id}/worksheet`);
+  assert.equal(worksheet.amount_minor, 8000);
+  assert.deepEqual(
+    worksheet.allocations.map((row) => [row.invoice_number, row.amount_minor]),
+    [
+      ['TEST-PARTIAL', 10000],
+      ['TEST-RETURN-USED', -2000],
+    ],
+  );
+  const advance = payments.find((row) => row.method === 'advance');
+  const advanceWorksheet = await api(`payments/${advance.id}/worksheet`);
+  assert.equal(advanceWorksheet.remaining_minor, 15000);
+  assert.equal((await fetch(base + '/api/payments/' + cancelledTransfer.id + '/worksheet')).status, 404);
   const registered = await api('purchases/import', {
     text: 'T001\tCHECK-ORDER\t2026-11-08\t700',
   });
@@ -148,6 +164,37 @@ try {
     assert.equal(await page.locator('#adjustmentTable').isVisible(), true);
     await page.getByRole('button', { name: '決済履歴', exact: true }).click();
     assert.equal(await page.locator('#paymentTable').isVisible(), true);
+    assert.equal(await page.locator(`.printWorksheet[data-id="${cancelledTransfer.id}"]`).count(), 0);
+    await page.locator(`.printWorksheet[data-id="${originalTransfer.id}"]`).click();
+    await page.locator('#voucherDialog').waitFor({ state: 'visible' });
+    const sheet = page.locator('#voucherSheet');
+    assert.match(await sheet.innerText(), /TEST-RETURN-USED/);
+    assert.match(await sheet.innerText(), /80\.00 USD/);
+    assert.equal(await sheet.locator('table').first().locator('tbody tr').count(), 4);
+    await page.evaluate(() => {
+      window.print = () => {
+        document.body.dataset.printInvoked = 'yes';
+      };
+    });
+    await page.locator('#printVoucher').click();
+    assert.equal(await page.locator('body').getAttribute('data-print-invoked'), 'yes');
+    await page.emulateMedia({ media: 'print' });
+    assert.equal(await page.locator('body > header').isVisible(), false);
+    assert.equal(await page.locator('#printVoucher').isVisible(), false);
+    assert.equal(await sheet.isVisible(), true);
+    if (process.env.KAIKAKE_WORKSHEET_PDF) {
+      await page.pdf({ path: process.env.KAIKAKE_WORKSHEET_PDF, preferCSSPageSize: true, tagged: true });
+      await sheet.locator('table').nth(1).locator('tbody').evaluate((body) => {
+        for (let index = 0; index < 90; index++) {
+          const row = body.rows[0].cloneNode(true);
+          row.cells[0].textContent = 'PRINT-ROW-' + index;
+          body.append(row);
+        }
+      });
+      await page.pdf({ path: process.env.KAIKAKE_WORKSHEET_PDF + '.long.pdf', preferCSSPageSize: true });
+    }
+    await page.emulateMedia({ media: 'screen' });
+    await page.locator('#closeVoucher').click();
     await page.getByRole('button', { name: '新しい決済' }).click();
     await page.locator('#paymentForm [name=supplier_id]').selectOption(String(suppliers[0].id));
     const [fields, allocations, submit] = await Promise.all(

@@ -1,4 +1,4 @@
-// 買掛管理アプリ v0.5.2
+// 買掛管理アプリ v0.5.3
 'use strict';
 const http = require('node:http');
 const fs = require('node:fs');
@@ -107,7 +107,7 @@ async function start(){
  }
  server.listen(PORT,'127.0.0.1',()=>{
   const port=server.address().port;
-  console.log(`買掛管理 v0.5.2: http://127.0.0.1:${port}`);
+  console.log(`買掛管理 v0.5.3: http://127.0.0.1:${port}`);
   process.send?.({port});
  });
 }

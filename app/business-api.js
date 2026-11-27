@@ -1,4 +1,4 @@
-// 買掛管理 v0.5.2 - 業務API
+// 買掛管理 v0.5.3 - 業務API
 'use strict';
 const {backup}=require('node:sqlite');
 const fs=require('node:fs');const path=require('node:path');
@@ -21,7 +21,7 @@ module.exports=function makeApi(db,root){
  const fmt=(n,c)=>c==='JPY'?String(n):(n/100).toFixed(2);
  return async function handle(req,url,body){const p=url.pathname,method=req.method;
  if(p==='/api/feedback'&&method==='GET')return all('SELECT * FROM feedback ORDER BY id DESC');
- if(p==='/api/feedback'&&method==='POST')return {id:Number(run('INSERT INTO feedback(category,page,content,version) VALUES (?,?,?,?)',required(body.category,'分類'),required(body.page,'画面'),required(body.content,'内容'),'v0.5.2').lastInsertRowid)};
+ if(p==='/api/feedback'&&method==='POST')return {id:Number(run('INSERT INTO feedback(category,page,content,version) VALUES (?,?,?,?)',required(body.category,'分類'),required(body.page,'画面'),required(body.content,'内容'),'v0.5.3').lastInsertRowid)};
  const fm=p.match(/^\/api\/feedback\/(\d+)$/);if(fm&&method==='PUT'){run('UPDATE feedback SET done=? WHERE id=?',body.done?1:0,Number(fm[1]));return {ok:true};}
  if(p==='/api/dashboard'&&method==='GET'){const inv=all("SELECT i.*,s.name supplier_name FROM invoices i JOIN suppliers s ON s.id=i.supplier_id WHERE i.status='active' ORDER BY i.due_date,i.id");return {invoices:inv.map(i=>({...i,remaining_minor:balance(i.id)})),purchase_count:get("SELECT COUNT(*) n FROM purchases WHERE status='active'").n,payment_count:get("SELECT COUNT(*) n FROM payments WHERE status='active'").n};}
  if(p==='/api/purchases'&&method==='GET')return all("SELECT p.*,s.code supplier_code,s.name supplier_name,i.invoice_number FROM purchases p JOIN suppliers s ON s.id=p.supplier_id LEFT JOIN invoices i ON i.id=p.invoice_id WHERE p.status='active' ORDER BY p.purchase_date DESC,p.id DESC LIMIT 1000");
@@ -54,6 +54,24 @@ module.exports=function makeApi(db,root){
   run("UPDATE invoices SET status='cancelled',updated_at=datetime('now') WHERE id=?",id);
   log('invoice',id,'cancel',old,{status:'cancelled'},reason);return {ok:true};
  });
+ const worksheet=p.match(/^\/api\/payments\/(\d+)\/worksheet$/);
+ if(worksheet&&method==='GET'){
+  const id=integer(worksheet[1],'決済ID',true);
+  const payment=get(`SELECT p.id,p.payment_date,p.method,p.currency,p.amount_minor,p.note,
+   s.code supplier_code,s.name supplier_name,COALESCE(NULLIF(p.payee_name_snapshot,''),s.name) payee_name
+   FROM payments p JOIN suppliers s ON s.id=p.supplier_id
+   WHERE p.id=? AND p.status='active'`,id);
+  if(!payment)fail(404,'有効な決済がありません');
+  const allocations=all(`SELECT i.invoice_number,a.allocation_date,a.amount_minor
+   FROM allocations a JOIN invoices i ON i.id=a.invoice_id
+   WHERE a.payment_id=? AND a.status='active' ORDER BY a.allocation_date,a.id`,id);
+  const expenses=all(`SELECT usage_class,reason,amount_minor FROM advance_uses
+   WHERE payment_id=? AND status='active' ORDER BY id`,id);
+  const allocated_minor=allocations.reduce((total,row)=>total+row.amount_minor,0);
+  const expensed_minor=expenses.reduce((total,row)=>total+row.amount_minor,0);
+  return {...payment,allocations,expenses,allocated_minor,expensed_minor,
+   remaining_minor:payment.amount_minor-allocated_minor-expensed_minor};
+ }
  if(p==='/api/payments'&&method==='GET')return all("SELECT p.*,s.name supplier_name,s.code supplier_code,COALESCE((SELECT SUM(amount_minor) FROM allocations WHERE payment_id=p.id AND status='active'),0) allocated_minor,COALESCE((SELECT SUM(amount_minor) FROM advance_uses WHERE payment_id=p.id AND status='active'),0) expensed_minor FROM payments p JOIN suppliers s ON s.id=p.supplier_id ORDER BY p.payment_date DESC,p.id DESC LIMIT 1000").map(x=>({...x,remaining_minor:x.amount_minor-x.allocated_minor-x.expensed_minor}));
  if(p==='/api/payments'&&method==='POST')return tx(()=>{let s=supplier(body.supplier_id);let method=required(body.method,'決済方法');if(!['transfer','advance','offset'].includes(method))fail(400,'決済方法が不正です');let currency=required(body.currency||s.currency,'通貨'),amount=toMinor(body.amount,currency);if(amount<0||(method!=='transfer'&&amount===0))fail(400,'決済金額が不正です');let allocations=Array.isArray(body.allocations)?body.allocations:[];if(method==='advance'&&!allocations.length)fail(400,'前払いにはINVOICEを1件以上指定してください');let prepared=allocations.map(x=>{let i=invoice(x.invoice_id);if(i.supplier_id!==s.id||i.currency!==currency)fail(400,'仕入先・通貨が一致しません');let n=toMinor(x.amount,currency);if(!n||(n<0&&method!=='transfer'))fail(400,'充当金額が不正です');return {i,n}});let sum=prepared.reduce((a,x)=>a+x.n,0);if(sum>amount)fail(400,'充当額が決済額を超えています');if(method!=='advance'&&sum!==amount)fail(400,'通常送金・相殺は全額をINVOICEへ充当してください');let byInvoice=new Map();for(const {i,n} of prepared)byInvoice.set(i.id,(byInvoice.get(i.id)||0)+n);if(!prepared.length||byInvoice.size!==prepared.length)fail(400,'充当対象が不正です');for(const [id,n] of byInvoice){const b=balance(id);if(Math.sign(n)!==Math.sign(b)||Math.abs(n)>Math.abs(b))fail(400,'INVOICEの未決済残高を超えています');}let usage=body.usage_class||'undetermined';if(!['purchase','non_purchase','freight','undetermined'].includes(usage))fail(400,'用途が不正です');let id=run('INSERT INTO payments(supplier_id,method,payment_date,currency,amount_minor,payee_name_snapshot,bank_beneficiary_code_snapshot,usage_class,note) VALUES (?,?,?,?,?,?,?,?,?)',s.id,method,date(body.payment_date,'決済日'),currency,amount,s.payee_name||s.name,s.bank_beneficiary_code,usage,body.note||null).lastInsertRowid;for(const {i,n} of prepared)run('INSERT INTO allocations(payment_id,invoice_id,amount_minor,allocation_date) VALUES (?,?,?,?)',id,i.id,n,body.payment_date);log('payment',Number(id),'create',null,{amount_minor:amount,method,allocations:prepared.map(x=>({invoice_id:x.i.id,amount_minor:x.n}))});return {id:Number(id)};});
  const pay=p.match(/^\/api\/payments\/(\d+)\/cancel$/);if(pay&&method==='POST')return tx(()=>{let id=Number(pay[1]),old=get('SELECT * FROM payments WHERE id=?',id);if(!old||old.status!=='active')fail(404,'決済がありません');let reason=required(body.reason,'取消理由');run("UPDATE payments SET status='cancelled',updated_at=datetime('now') WHERE id=?",id);run("UPDATE allocations SET status='cancelled',updated_at=datetime('now') WHERE payment_id=?",id);run("UPDATE advance_uses SET status='cancelled' WHERE payment_id=?",id);log('payment',id,'cancel',old,{status:'cancelled'},reason);return {ok:true};});

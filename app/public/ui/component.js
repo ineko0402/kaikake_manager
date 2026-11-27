@@ -36,6 +36,10 @@ class PassiveView {
     return navigator.clipboard.writeText(text);
   }
 
+  print() {
+    window.print();
+  }
+
   download(text, filename) {
     const url = URL.createObjectURL(new Blob(['\ufeff', text], { type: 'text/plain;charset=utf-8' }));
     const link = this.create('a');

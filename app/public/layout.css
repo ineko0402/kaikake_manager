@@ -181,3 +181,107 @@ summary {
 .flowCard b {
   grid-row: 1;
 }
+
+#voucherDialog {
+  width: min(850px, 94vw);
+  max-height: 92vh;
+}
+
+#voucherSheet {
+  overflow-wrap: anywhere;
+}
+
+#voucherSheet h2 {
+  margin-top: 18px;
+}
+
+.voucher-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  gap: 10px;
+}
+
+.voucher-facts dt {
+  font-size: 0.9em;
+}
+
+.voucher-facts dd {
+  margin: 3px 0 0;
+}
+
+.voucher-note {
+  white-space: pre-wrap;
+}
+
+.voucher-line span {
+  display: inline-block;
+  min-width: 6em;
+  border-bottom: 1px solid currentColor;
+}
+
+#voucherSheet table:first-of-type td {
+  height: 32px;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body:has(#voucherDialog[open]) {
+    display: block;
+    height: auto;
+    overflow: visible;
+    color: black;
+    background: white;
+  }
+
+  body:has(#voucherDialog[open]) > header,
+  body:has(#voucherDialog[open]) .sidebar,
+  body:has(#voucherDialog[open]) main > :not(#payments),
+  body:has(#voucherDialog[open]) #payments > :not(#voucherDialog),
+  #voucherDialog .voucher-controls {
+    display: none !important;
+  }
+
+  body:has(#voucherDialog[open]) .layout,
+  body:has(#voucherDialog[open]) main {
+    display: block;
+    overflow: visible;
+    padding: 0;
+  }
+
+  #voucherDialog[open] {
+    position: static;
+    inset: auto;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+
+  #voucherDialog::backdrop {
+    background: transparent;
+  }
+
+  #voucherSheet th,
+  #voucherSheet td {
+    border: 1px solid #777;
+    color: black;
+    background: white;
+  }
+
+  #voucherSheet thead {
+    display: table-header-group;
+  }
+  #voucherSheet tr {
+    break-inside: avoid;
+  }
+  #voucherSheet h2 {
+    break-after: avoid;
+  }
+}
