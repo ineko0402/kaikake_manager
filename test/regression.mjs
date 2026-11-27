@@ -158,6 +158,7 @@ try {
       viewport: { width: 1280, height: 720 },
       permissions: ['clipboard-read', 'clipboard-write'],
     });
+    page.setDefaultTimeout(10000);
     const issues = [];
     page.on('pageerror', (error) => issues.push(error.message));
     await page.goto(base);
@@ -166,6 +167,14 @@ try {
     assert.equal(await page.locator('header').evaluate((node) => node.getBoundingClientRect().top), 0);
     await page.locator('[data-page="invoices"]').click();
     const purchaseDetails = page.locator('#invoicePurchaseDetails');
+    const saveInvoice = await page.locator('#saveInvoice').boundingBox();
+    const invoiceSearch = await page.locator('#invoiceSupplierSearch').boundingBox();
+    assert(saveInvoice.y < invoiceSearch.y);
+    assert.equal(await page.locator('#saveInvoice').getAttribute('form'), 'invoiceForm');
+    assert.equal(
+      await page.locator('#applyInvoiceTemplate').getAttribute('aria-label'),
+      '仕入先の番号テンプレートを適用',
+    );
     assert.equal(await purchaseDetails.isVisible(), false);
     const supplierSearch = page.locator('#invoiceSupplierSearch');
     await supplierSearch.fill('Ｔ００１ テスト商事');
@@ -174,8 +183,7 @@ try {
     await page.locator('#invoiceForm [name=supplier_id]').selectOption(String(suppliers[0].id));
     await supplierSearch.fill('テスト工業');
     assert.equal(await page.locator('#invoiceForm [name=supplier_id]').inputValue(), String(suppliers[0].id));
-    assert.equal(await purchaseDetails.getAttribute('open'), null);
-    await purchaseDetails.locator('summary').click();
+    assert.equal(await purchaseDetails.evaluate((node) => node.open), true);
     await page.locator('#chooseVisible').click();
     await purchaseDetails.locator('summary').click();
     assert.equal(await page.locator('#chosenSummary').isVisible(), true);
@@ -385,7 +393,6 @@ try {
     await page.getByText('Browser regression case').waitFor();
     await page.locator('#feedbackSort').selectOption('oldest');
     assert.match(await page.locator('#feedbackList tbody tr').first().innerText(), /未対応要望/);
-    await page.locator('#feedbackOutput summary').click();
     await page.locator('#copyFeedback').click();
     const copied = await page.evaluate(() => navigator.clipboard.readText());
     assert.match(copied, /Browser regression case/);
@@ -404,8 +411,8 @@ try {
     assert(await page.evaluate(() => document.documentElement.scrollWidth === innerWidth));
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.locator('[data-page="workflow"]').click();
-    await page.getByText('前払いの業務フロー', { exact: true }).click();
-    await page.getByRole('button', { name: '登録済みINVOICEを開く' }).click();
+    assert.equal(await page.getByRole('heading', { name: '前払い', exact: true }).isVisible(), true);
+    await page.getByRole('button', { name: '登録済みINVOICEに紐付け' }).click();
     const unlinkedInvoice = page.locator('#invoiceTable tr').filter({ hasText: 'TEST-UNPAID' });
     await unlinkedInvoice.getByText('未紐付け', { exact: true }).waitFor();
     const advanceRow = page.locator('#invoiceTable tr').filter({ hasText: 'TEST-ADVANCE' });
@@ -442,6 +449,55 @@ try {
       (await api('payments')).find((row) => row.id === beforeAdvancePayment.id),
       beforeAdvancePayment,
     );
+    await page.locator('[data-page="dashboard"]').click();
+    assert.equal(await page.locator('#summary [data-voucher]').isVisible(), true);
+    await page.getByRole('button', { name: /未紐付け仕入.*INVOICEへ/ }).click();
+    await page.locator('#invoices.active .tabs button.active').filter({ hasText: '新しいINVOICE' }).waitFor();
+
+    await page.locator('[data-page="workflow"]').click();
+    await page
+      .locator('[aria-labelledby=advanceFlowTitle] [data-method=advance][data-flow=invoices]')
+      .click();
+    await page.locator('#invoiceForm [name=supplier_id]').selectOption(String(suppliers[0].id));
+    assert.equal(await page.locator('#invoiceForm [name=settlement_method]').inputValue(), 'advance');
+    await page.locator('[data-page="workflow"]').click();
+    await page.getByRole('button', { name: '前払を登録' }).click();
+    assert.equal(await page.locator('#paymentForm [name=method]').inputValue(), 'advance');
+
+    // Follow the normal workflow from a new purchase through a bank transfer.
+    await page.locator('[data-page="workflow"]').click();
+    const regular = page.locator('[aria-labelledby=regularFlowTitle]');
+    await regular.getByRole('button', { name: '仕入を取り込む' }).click();
+    await page.locator('#paste').fill('T001\tFLOW-PURCHASE\t2025-07-15\t1500');
+    await page.locator('#import').click();
+    await page.getByText('1件登録しました', { exact: true }).waitFor();
+    await page.locator('[data-page="workflow"]').click();
+    await regular.getByRole('button', { name: 'INVOICEを登録' }).click();
+    const invoiceForm = page.locator('#invoiceForm');
+    await invoiceForm.locator('[name=supplier_id]').selectOption(String(suppliers[0].id));
+    await invoiceForm.locator('[name=settlement_method]').selectOption('transfer');
+    await invoiceForm.locator('[name=invoice_number]').fill('FLOW-INVOICE');
+    await invoiceForm.locator('[name=invoice_date]').fill('2025-07-15');
+    await invoiceForm.locator('[name=total]').fill('10.00');
+    await page.locator('#invoicePurchaseDetails select[aria-label="期間"]').selectOption('all');
+    await page.locator('#purchaseChoices tr').filter({ hasText: 'FLOW-PURCHASE' }).locator('input').check();
+    await page.locator('#saveInvoice').click();
+    await page.getByText(/INVOICE #.*登録しました/).waitFor();
+    const flowInvoice = (await api('invoices')).find((row) => row.invoice_number === 'FLOW-INVOICE');
+    assert.equal(flowInvoice.purchase_count, 1);
+    await page.locator('[data-page="workflow"]').click();
+    await regular.getByRole('button', { name: '月次送金を確認' }).click();
+    await page.locator('#month').fill(flowInvoice.due_date.slice(0, 7));
+    await page
+      .locator('#transferTable tr')
+      .filter({ hasText: 'FLOW-INVOICE' })
+      .locator('.transferCheck')
+      .check();
+    await page.locator('#transferPaymentDate').fill(flowInvoice.due_date);
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.locator('#confirmTransfers').click();
+    await page.getByText(/送金確定: 1件/).waitFor();
+    assert.equal((await api('invoices')).find((row) => row.id === flowInvoice.id).remaining_minor, 0);
     assert.deepEqual(issues, []);
     console.log('Browser selection, filtering, remittance history and suppliers passed');
   }

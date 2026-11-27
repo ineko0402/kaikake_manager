@@ -167,12 +167,19 @@ export function invoices(component, model, today, filterStates) {
           'USD',
       ),
     );
+  let workflowMethod;
+  component.on(form.elements.settlement_method, 'change', 'changeInvoiceMethod', () => {
+    workflowMethod = undefined;
+  });
   component.on($('invoiceForm').elements.supplier_id, 'change', 'applySupplierMethod', () => {
     const s = model.suppliers.find((x) => x.id === Number($('invoiceForm').elements.supplier_id.value));
-    $('invoiceForm').elements.settlement_method.value = s?.default_settlement_method || 'transfer';
+    $('invoiceForm').elements.settlement_method.value =
+      workflowMethod ?? s?.default_settlement_method ?? 'transfer';
+    workflowMethod = undefined;
   });
   const chosenPurchases = new Selection();
   let choiceSupplier = null;
+  let hadPurchaseCandidates = false;
   function selectedPurchases() {
     return model.purchases.filter(
       (p) =>
@@ -187,8 +194,10 @@ export function invoices(component, model, today, filterStates) {
     const candidates = model.purchases.filter((p) => !p.invoice_id && p.supplier_id === sid);
     const details = $('invoicePurchaseDetails');
     details.hidden = !sid;
+    const hasCandidates = candidates.length > 0;
+    if (choiceSupplier !== sid || (!hadPurchaseCandidates && hasCandidates)) details.open = hasCandidates;
+    hadPurchaseCandidates = hasCandidates;
     if (choiceSupplier !== sid) {
-      details.open = false;
       choiceSupplier = sid;
       chosenPurchases.clear();
       $('onlyChosen').checked = false;
@@ -364,5 +373,12 @@ export function invoices(component, model, today, filterStates) {
     );
     renderPurchaseChoices();
   }
-  return { render, filter: renderPurchaseChoices };
+  return {
+    render,
+    filter: renderPurchaseChoices,
+    setMethod(method) {
+      workflowMethod = method;
+      form.elements.settlement_method.value = method;
+    },
+  };
 }

@@ -62,6 +62,7 @@ class AppMediator {
           page: nav.dataset.flow,
           tab: Number(nav.dataset.tab),
           plan: nav.dataset.flow === 'transfers',
+          method: nav.dataset.method,
         }),
       );
     }
@@ -96,7 +97,7 @@ class AppMediator {
     this.#root.view.render({ status: { text, className: error ? 'status error' : 'status' } });
   }
 
-  async navigate({ page, tab, filter, plan, currentMonth }, restoring = false) {
+  async navigate({ page, tab, filter, plan, currentMonth, method }, restoring = false) {
     if (!this.#root.view.find(page)?.classList.contains('page')) return;
     if (page !== this.#page) this.#root.view.scope.querySelector('main').scrollTop = 0;
     this.#page = page;
@@ -106,6 +107,7 @@ class AppMediator {
       else this.#tabs.set(page, tab);
     }
     if (plan) this.#screens.transfers.plan(currentMonth);
+    if (method) this.#screens[page]?.setMethod?.(method);
     for (const section of this.#root.view.all('.page'))
       section.classList.toggle('active', section.id === page);
     for (const nav of this.#root.view.all('[data-page]'))

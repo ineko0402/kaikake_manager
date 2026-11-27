@@ -219,5 +219,12 @@ export function payments(component, model, today, filterStates) {
     );
     renderAllocationChoices();
   }
-  return { render, filter: renderAllocationChoices };
+  return {
+    render,
+    filter: renderAllocationChoices,
+    setMethod(method) {
+      $('paymentForm').elements.method.value = method;
+      renderAllocationChoices();
+    },
+  };
 }

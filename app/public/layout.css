@@ -331,3 +331,48 @@ body .tabs {
 #invoiceArrivalChoices {
   max-height: 32vh;
 }
+
+.page-heading h2 {
+  margin: 0;
+  margin-inline-end: auto;
+}
+
+.invoice-number input {
+  margin: 0;
+}
+
+#applyInvoiceTemplate {
+  min-width: var(--control-min-height);
+  padding-inline: 7px;
+}
+
+.workflow.workflow-paths {
+  max-width: 850px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.workflow-path .flowCard {
+  margin-block: 6px;
+}
+
+.workflow-path h3 {
+  font-size: 13px;
+  margin: 12px 0 4px;
+}
+
+.workflow-shared {
+  grid-column: 1 / -1;
+}
+
+#dashLinks:not(:empty) {
+  margin-top: 12px;
+}
+
+@media (max-width: 800px) {
+  .workflow.workflow-paths {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

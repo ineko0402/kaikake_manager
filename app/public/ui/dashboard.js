@@ -1,4 +1,4 @@
-import { esc, money, dashboardTable } from './presenter.js';
+import { money, dashboardTable } from './presenter.js';
 export function dashboard(component, model, today) {
   const view = component.view;
   const $ = (id) => view.find(id);
@@ -12,19 +12,28 @@ export function dashboard(component, model, today) {
       );
     const totals = {};
     for (const i of month) totals[i.currency] = (totals[i.currency] || 0) + i.remaining_minor;
-    $('summary').innerHTML =
-      '<h2>今月の支払予定残額</h2><p>' +
-      Object.entries(totals)
-        .map(([c, n]) => esc(money(n, c)))
-        .join(' / ') +
-      '</p><button class="action" id="dashMonth">今月の送金予定（' +
-      month.length +
-      '件）</button><p id="dashLinks"></p>';
-    component.on($('dashMonth'), 'click', 'openCurrentTransfers', () => {
-      component.emit('navigate', { page: 'transfers', plan: true, currentMonth: true });
+    view.render({
+      dashTotals: {
+        text: month.length
+          ? '支払予定残額 ' +
+            Object.entries(totals)
+              .map(([currency, total]) => money(total, currency))
+              .join(' ／ ')
+          : '支払予定はありません',
+      },
+      dashMonth: { text: `今月の送金予定（${month.length}件）` },
     });
+    $('dashLinks').replaceChildren();
+    if (model.purchases.some((row) => !row.invoice_id)) {
+      const count = model.purchases.filter((row) => !row.invoice_id).length;
+      const button = view.create('button');
+      button.textContent = `未紐付け仕入 ${count}件をINVOICEへ`;
+      component.on(button, 'click', 'linkUnassignedPurchases', () =>
+        component.emit('navigate', { page: 'invoices', tab: 0 }),
+      );
+      $('dashLinks').append(button);
+    }
     for (const [label, id, f, n] of [
-      ['未紐付け仕入', 'purchases', 'unlinked', model.purchases.filter((x) => !x.invoice_id).length],
       ['期限超過', 'invoices', 'overdue', open.filter((x) => x.due_date && x.due_date < today).length],
       ['予定日未設定', 'invoices', 'nodue', open.filter((x) => !x.due_date).length],
       [
@@ -44,6 +53,10 @@ export function dashboard(component, model, today) {
       $('dashLinks').append(b);
     }
   }
+
+  component.on($('dashMonth'), 'click', 'openCurrentTransfers', () => {
+    component.emit('navigate', { page: 'transfers', plan: true, currentMonth: true });
+  });
 
   function render() {
     const open = model.invoices.filter((i) => i.remaining_minor !== 0);
