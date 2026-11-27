@@ -333,7 +333,6 @@ export function transfers(component, model, today) {
       );
       const area = view.create('textarea');
       area.rows = 3;
-      area.style.width = '100%';
       area.value = draft.text;
       const count = view.create('small');
       count.textContent = area.value.length + '文字';
