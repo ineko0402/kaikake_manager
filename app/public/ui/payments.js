@@ -1,5 +1,4 @@
 import { inPeriod, updatePeriodControls } from './filters.js';
-import { voucherWorksheet } from './worksheet.js';
 import { Selection } from './selection.js';
 import { api, post } from './api.js';
 import { esc, table, td, money, minorText, paymentTable, adjustmentTable } from './presenter.js';
@@ -10,7 +9,6 @@ export function payments(component, model, today, filterStates) {
   const values = (form) => view.readForm(form);
   const msg = (text, error = false) => component.emit('status', { text, error });
   const refresh = () => component.emit('refresh');
-  voucherWorksheet(component, today);
   component.on($('paymentForm'), 'submit', 'savePayment', async (e) => {
     try {
       let v = values(e.target);

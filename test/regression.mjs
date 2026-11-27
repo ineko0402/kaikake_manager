@@ -177,9 +177,15 @@ try {
     await page.getByRole('button', { name: '決済履歴', exact: true }).click();
     assert.equal(await page.locator('#paymentTable').isVisible(), true);
     await page.locator('#voucherMonth').fill('2026-11');
+    const [monthField, worksheetButton] = await Promise.all(
+      ['#voucherMonth', '#openVoucher'].map((selector) => page.locator(selector).boundingBox()),
+    );
+    assert.equal(monthField.height, worksheetButton.height);
+    assert.equal(monthField.y, worksheetButton.y);
     await page.locator('#openVoucher').click();
     await page.locator('#voucherDialog').waitFor({ state: 'visible' });
     const sheet = page.locator('#voucherSheet');
+    await sheet.locator('table').waitFor();
     assert.match(await sheet.innerText(), /TEST-RETURN-USED/);
     assert.match(await sheet.innerText(), /80\.00 USD/);
     assert.match(await sheet.innerText(), /2026年11月　決済 3件/);
@@ -196,7 +202,11 @@ try {
         .evaluate((cell) => getComputedStyle(cell).whiteSpace),
       'nowrap',
     );
-    assert.equal(await sheet.locator('table').last().locator('tbody tr').count(), 3);
+    assert.equal(await sheet.locator('table').count(), 1);
+    const day = transferRow.locator('td').first();
+    assert.match(await day.innerText(), /^26日/);
+    assert.equal(await day.evaluate((cell) => getComputedStyle(cell).whiteSpace), 'nowrap');
+    assert.doesNotMatch(await sheet.innerText(), /手書き欄/);
     await page.evaluate(() => {
       window.print = () => {
         document.body.dataset.printInvoked = 'yes';
@@ -212,7 +222,7 @@ try {
       await page.pdf({ path: process.env.KAIKAKE_WORKSHEET_PDF, preferCSSPageSize: true, tagged: true });
       await sheet
         .locator('table')
-        .nth(1)
+        .first()
         .locator('tbody')
         .evaluate((body) => {
           for (let index = 0; index < 90; index++) {
@@ -225,6 +235,24 @@ try {
     }
     await page.emulateMedia({ media: 'screen' });
     await page.locator('#closeVoucher').click();
+    for (const screen of ['workflow', 'dashboard', 'transfers']) {
+      await page.locator(`[data-page="${screen}"]`).click();
+      if (screen === 'transfers') await page.locator('#month').fill('2026-11');
+      await page.locator(`#${screen}.active [data-voucher]:visible`).click();
+      const previewMonth = page.locator('#voucherPreviewMonth');
+      if (screen === 'transfers') assert.equal(await previewMonth.inputValue(), '2026-11');
+      else await previewMonth.fill('2026-11');
+      await sheet.locator('table').waitFor();
+      assert.match(await sheet.innerText(), /2026年11月　決済 3件/);
+      await page.locator('#closeVoucher').click();
+    }
+    await page.locator('#actualTab').click();
+    await page.locator('#actualMonth').fill('2026-11');
+    await page.locator('#actualPanel [data-voucher]').click();
+    assert.equal(await page.locator('#voucherPreviewMonth').inputValue(), '2026-11');
+    await sheet.locator('table').waitFor();
+    await page.locator('#closeVoucher').click();
+    await page.locator('[data-page="payments"]').click();
     await page.getByRole('button', { name: '新しい決済' }).click();
     await page.locator('#paymentForm [name=supplier_id]').selectOption(String(suppliers[0].id));
     const [fields, allocations, submit] = await Promise.all(

@@ -11,6 +11,7 @@ import { backup } from './ui/backup.js';
 import { feedback } from './ui/feedback.js';
 import { supplier } from './ui/supplier.js';
 import { dashboard } from './ui/dashboard.js';
+import { voucherWorksheet } from './ui/worksheet.js';
 
 const model = { suppliers: [], purchases: [], invoices: [], payments: [], adjustments: [] };
 const today = new Date().toLocaleDateString('sv-SE');
@@ -51,6 +52,7 @@ class AppMediator {
       backup: backup(panels.backup),
       feedback: feedback(panels.feedback, navigation),
     };
+    voucherWorksheet(this.#root, today);
     for (const nav of view.all('[data-page]')) {
       navigation.on(nav, 'click', 'openPage', () => navigation.emit('navigate', { page: nav.dataset.page }));
     }

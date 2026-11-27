@@ -191,10 +191,6 @@ summary {
   overflow-wrap: anywhere;
 }
 
-#voucherSheet h2 {
-  margin-top: 18px;
-}
-
 #voucherSheet table:first-of-type th {
   white-space: nowrap;
 }
@@ -220,10 +216,6 @@ summary {
   margin-bottom: 12px;
 }
 
-#voucherSheet table:last-of-type td {
-  height: 32px;
-}
-
 #invoiceReferenceRate {
   grid-column: 1 / -1;
   margin: 0;
@@ -244,19 +236,9 @@ summary {
     background: white;
   }
 
-  body:has(#voucherDialog[open]) > header,
-  body:has(#voucherDialog[open]) .sidebar,
-  body:has(#voucherDialog[open]) main > :not(#payments),
-  body:has(#voucherDialog[open]) #payments > :not(#voucherDialog),
+  body:has(#voucherDialog[open]) > :not(#voucherDialog),
   #voucherDialog .voucher-controls {
     display: none !important;
-  }
-
-  body:has(#voucherDialog[open]) .layout,
-  body:has(#voucherDialog[open]) main {
-    display: block;
-    overflow: visible;
-    padding: 0;
   }
 
   #voucherDialog[open] {
@@ -280,13 +262,9 @@ summary {
     line-height: 1.3;
   }
 
-  #voucherSheet h1 {
+  #voucherTitle {
     font-size: 14pt;
     margin: 0 0 4mm;
-  }
-
-  #voucherSheet h2 {
-    font-size: 11pt;
   }
 
   #voucherSheet table {
@@ -308,7 +286,36 @@ summary {
   #voucherSheet tr {
     break-inside: avoid;
   }
-  #voucherSheet h2 {
-    break-after: avoid;
-  }
+}
+
+/* A shared height for standard controls, with room for multiline labels. */
+body {
+  --control-min-height: 36px;
+}
+
+body button:not(.flowCard):not(.supplier) {
+  min-height: var(--control-min-height);
+  margin-block: 0;
+  padding-block: 6px;
+  line-height: 20px;
+}
+
+body .tabs {
+  flex-wrap: wrap;
+}
+
+.page-heading h1 {
+  margin: 0;
+  margin-inline-end: auto;
+}
+
+.voucher-month {
+  align-items: center;
+}
+
+.voucher-month input[type='month'] {
+  width: auto;
+  min-height: var(--control-min-height);
+  margin: 0;
+  padding: 6px 9px;
 }

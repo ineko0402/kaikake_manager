@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { esc, invoiceReferenceRate, money, table, td } from './presenter.js';
+import { esc, invoiceReferenceRate, money, table } from './presenter.js';
 
 function presentWorksheet(month, payments) {
   const methods = { transfer: '通常送金', advance: '前払', offset: '売掛相殺' };
@@ -33,7 +33,7 @@ function presentWorksheet(month, payments) {
         )
       : '—';
     return `<tr>
-      <td>${esc(payment.payment_date)}<small class="voucher-rate">#${payment.id}</small></td>
+      <td class="voucher-nowrap">${Number(payment.payment_date.slice(-2))}日<small class="voucher-rate">#${payment.id}</small></td>
       <td>${esc(payment.supplier_code)} ${esc(payment.supplier_name)}${payee}${note}</td>
       <td class="voucher-nowrap">${esc(methods[payment.method])}</td>
       <td class="voucher-nowrap voucher-amount">${esc(amount(payment.amount_minor))}</td>
@@ -44,43 +44,52 @@ function presentWorksheet(month, payments) {
   const totalText = [...totals].map(([currency, total]) => money(total, currency)).join(' ／ ');
   const [year, mm] = month.split('-');
   return `
-    <h1 id="voucherTitle">振替伝票 月別転記用紙</h1>
     <p>${esc(year)}年${Number(mm)}月　決済 ${payments.length}件</p>
     <p>記録通貨別の決済額合計（相殺を含む）　${esc(totalText)}</p>
     ${table(['決済日・ID', '仕入先', '方法', '決済額', '仕入額（円）', 'INVOICE・充当額'], rows)}
     <p>仕入額は充当先のINVOICEに紐付く円合計です。分割決済では同じ仕入額が別の決済行にも載ります。</p>
-    <h2>手書き欄</h2>
-    ${table(
-      ['決済ID', '伝票番号', '借方科目・円金額', '貸方科目・円金額', '摘要・レート'],
-      payments.map((payment) => td('#' + payment.id, '', '', '', '')),
-    )}`;
+`;
 }
 
-export function voucherWorksheet(component, today) {
-  const dialog = component.view.find('voucherDialog');
-  const sheet = component.child('voucherWorksheet', dialog);
+export function voucherWorksheet(root, today) {
+  const dialog = root.view.find('voucherDialog');
+  const sheet = root.child('voucherWorksheet', dialog);
   const view = sheet.view;
-  const month = component.view.find('voucherMonth');
-  const open = component.view.find('openVoucher');
-  month.value = today.slice(0, 7);
+  const month = view.find('voucherPreviewMonth');
+  const print = view.find('printVoucher');
+  const currentMonth = today.slice(0, 7);
+  root.view.find('voucherMonth').value = currentMonth;
+  let request = 0;
 
-  sheet.on(open, 'click', 'openVoucher', async () => {
+  async function loadMonth() {
+    const current = ++request;
     const targetMonth = month.value;
-    if (!targetMonth) return sheet.emit('status', { text: '対象月を指定してください', error: true });
-    open.disabled = true;
+    print.disabled = true;
+    view.render({ voucherSheet: { text: targetMonth ? '読み込み中…' : '対象月を指定してください' } });
+    if (!targetMonth) return;
     try {
       const payments = await api('/api/payments/worksheet?month=' + encodeURIComponent(targetMonth));
-      if (targetMonth !== month.value || !open.getClientRects().length) return;
+      if (request !== current || !dialog.open) return;
       if (!payments.length) {
-        sheet.emit('status', { text: '対象月に有効な決済はありません' });
+        view.render({ voucherSheet: { text: '対象月に有効な決済はありません' } });
         return;
       }
       view.render({ voucherSheet: { html: presentWorksheet(targetMonth, payments) } });
-      dialog.showModal();
-    } finally {
-      open.disabled = false;
+      print.disabled = false;
+    } catch (error) {
+      if (request === current && dialog.open) view.render({ voucherSheet: { text: error.message } });
     }
-  });
+  }
+
+  for (const open of root.view.all('[data-voucher]')) {
+    sheet.on(open, 'click', 'openVoucher', () => {
+      const monthSource = open.dataset.voucher;
+      month.value = (monthSource && root.view.find(monthSource).value) || currentMonth;
+      dialog.showModal();
+      return loadMonth();
+    });
+  }
+  sheet.on(month, 'change', 'changeVoucherMonth', loadMonth);
   sheet.on(view.find('closeVoucher'), 'click', 'closeVoucher', () => dialog.close());
-  sheet.on(view.find('printVoucher'), 'click', 'printVoucher', () => view.print());
+  sheet.on(print, 'click', 'printVoucher', () => view.print());
 }
