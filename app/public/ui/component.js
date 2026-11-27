@@ -89,6 +89,9 @@ class PassiveView {
           target: event.target,
           currentTarget: element,
           shiftKey: event.shiftKey,
+          key: event.key,
+          isComposing: event.isComposing,
+          preventDefault: () => event.preventDefault(),
         };
         for (const token of bindings.get(type)) this.#notify(token, input);
       });

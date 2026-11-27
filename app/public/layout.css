@@ -36,21 +36,10 @@ body {
   padding: 1px;
 }
 
-.supplier-picker,
 .payment-editor {
   display: grid;
   gap: 12px;
   align-items: start;
-}
-
-.supplier-picker {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-width: 660px;
-}
-
-.supplier-picker small {
-  grid-column: 1 / -1;
-  min-height: 1em;
 }
 
 .payment-editor {
@@ -131,10 +120,6 @@ body {
 
   .layout > .sidebar > button {
     width: auto;
-  }
-
-  .supplier-picker {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -363,10 +348,6 @@ body .tabs {
   margin: 12px 0 4px;
 }
 
-.workflow-shared {
-  grid-column: 1 / -1;
-}
-
 #dashLinks:not(:empty) {
   margin-top: 12px;
 }
@@ -379,8 +360,7 @@ body .tabs {
 
 .invoice-savebar {
   gap: 8px 12px;
-  margin-bottom: 12px;
-  background: white;
+  margin: 0;
 }
 
 #invoiceSaveStatus {
@@ -388,15 +368,98 @@ body .tabs {
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 1024px) {
-  .invoice-savebar {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    padding-block: 6px;
-  }
+body {
+  grid-template-columns: minmax(0, 1fr);
+}
 
-  #invoiceForm :is(input, select) {
-    scroll-margin-top: 60px;
-  }
+.layout,
+.layout > main,
+#invoiceRegistration,
+#invoiceForm {
+  min-width: 0;
+}
+
+body > header {
+  min-width: 0;
+  gap: 8px;
+}
+
+body > header > div {
+  min-width: 0;
+}
+
+.invoice-heading {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #f4f6f9;
+  padding-bottom: 6px;
+}
+
+.invoice-heading h1 {
+  margin: 0;
+}
+
+.invoice-savebar[hidden] {
+  display: none;
+}
+
+#invoiceForm :is(input, select) {
+  scroll-margin-top: 155px;
+}
+
+#invoiceForm .invoice-fields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+}
+
+.invoice-amount {
+  display: grid;
+  grid-template-columns: minmax(0, 5em) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.invoice-fields > :is(#purchaseDifference, #invoiceReferenceRate) {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+#purchaseDifference:empty {
+  display: none;
+}
+
+#invoiceForm .supplier-picker {
+  display: block;
+  position: relative;
+  max-width: 460px;
+}
+
+#invoiceSupplierOptions {
+  position: absolute;
+  inset-inline: 0;
+  z-index: 2;
+  max-height: min(240px, 35vh);
+  overflow: auto;
+  border: 1px solid #b8c4d1;
+  border-radius: 5px;
+  background: white;
+}
+
+#invoiceSupplierOptions button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 0;
+}
+
+#invoiceSupplierOptions button:is(:hover, [aria-selected='true']) {
+  background: #dce8f6;
+}
+
+#invoiceSupplierCount {
+  display: block;
+}
+
+#invoiceSupplierCount:empty {
+  display: none;
 }

@@ -167,7 +167,7 @@ try {
     assert.equal(await page.locator('header').evaluate((node) => node.getBoundingClientRect().top), 0);
     await page.locator('[data-page="invoices"]').click();
     const purchaseDetails = page.locator('#invoicePurchaseDetails');
-    for (const width of [960, 640]) {
+    for (const width of [950, 960, 640, 390]) {
       await page.setViewportSize({ width, height: 720 });
       const [button, panel] = await Promise.all(
         ['#saveInvoice', '#invoices > .panel:visible'].map((selector) =>
@@ -177,13 +177,15 @@ try {
       assert(button.x - panel.x < 24);
       assert(button.x + button.width < width && button.y + button.height < 720);
       assert(await page.locator('main').evaluate((main) => main.scrollWidth === main.clientWidth));
+      for (const selector of ['#openFeedback', '#invoiceForm [name=total]', '#invoiceForm [name=currency]']) {
+        const bounds = await page.locator(selector).boundingBox();
+        assert(bounds.x >= 0 && bounds.x + bounds.width <= width);
+      }
     }
     await page.locator('#saveInvoice').click();
-    assert.equal(await page.locator('#invoiceSaveStatus').innerText(), '仕入先を選択してください');
+    assert.equal(await page.locator('#invoiceSaveStatus').innerText(), '仕入先を候補から選択してください');
     assert.equal(
-      await page
-        .locator('#invoiceForm [name=supplier_id]')
-        .evaluate((field) => field === document.activeElement),
+      await page.locator('#invoiceSupplierSearch').evaluate((field) => field === document.activeElement),
       true,
     );
     await page.setViewportSize({ width: 1280, height: 720 });
@@ -199,19 +201,37 @@ try {
     const supplierSearch = page.locator('#invoiceSupplierSearch');
     await supplierSearch.fill('Ｔ００１ テスト商事');
     assert.equal(await page.locator('#invoiceSupplierCount').innerText(), '1件一致');
-    assert.equal(await page.locator('#invoiceForm [name=supplier_id] option').count(), 2);
-    await page.locator('#invoiceForm [name=supplier_id]').selectOption(String(suppliers[0].id));
+    assert.equal(await page.locator('#invoiceSupplierOptions [role=option]').count(), 1);
+    await supplierSearch.press('ArrowDown');
+    await supplierSearch.press('Enter');
+    assert.equal(await supplierSearch.inputValue(), 'T001 テスト商事');
     await supplierSearch.fill('テスト工業');
+    assert.equal(await supplierSearch.evaluate((field) => field.validity.valid), false);
+    await supplierSearch.press('Escape');
+    assert.equal(await supplierSearch.inputValue(), 'T001 テスト商事');
     assert.equal(await page.locator('#invoiceForm [name=supplier_id]').inputValue(), String(suppliers[0].id));
     assert.equal(await purchaseDetails.evaluate((node) => node.open), true);
-    await page.setViewportSize({ width: 640, height: 650 });
+    await page.setViewportSize({ width: 640, height: 500 });
     const main = page.locator('main');
     await main.evaluate((node) => {
       node.scrollTop = 280;
     });
     const stickyTop = await page.locator('#saveInvoice').evaluate((node) => node.getBoundingClientRect().top);
     const mainTop = await main.evaluate((node) => node.getBoundingClientRect().top);
-    assert(stickyTop >= mainTop && stickyTop < mainTop + 32);
+    const tabTop = await page.locator('#invoices .tabs').evaluate((node) => node.getBoundingClientRect().top);
+    const heading = await page
+      .locator('.invoice-heading')
+      .evaluate((node) => node.getBoundingClientRect().top);
+    const scrolled = await main.evaluate((node) => node.scrollTop);
+    assert(
+      scrolled > 100 && heading >= mainTop && heading < mainTop + 18,
+      JSON.stringify({ heading, mainTop, tabTop, stickyTop, scrolled }),
+    );
+    assert(
+      tabTop > heading && tabTop < heading + 70,
+      JSON.stringify({ heading, mainTop, tabTop, stickyTop }),
+    );
+    assert(stickyTop > tabTop && stickyTop < mainTop + 125);
     await main.evaluate((node) => {
       node.scrollTop = 0;
     });
@@ -490,7 +510,8 @@ try {
     await page
       .locator('[aria-labelledby=advanceFlowTitle] [data-method=advance][data-flow=invoices]')
       .click();
-    await page.locator('#invoiceForm [name=supplier_id]').selectOption(String(suppliers[0].id));
+    await supplierSearch.fill('T001');
+    await page.getByRole('option', { name: 'T001 テスト商事', exact: true }).click();
     assert.equal(await page.locator('#invoiceForm [name=settlement_method]').inputValue(), 'advance');
     await page.locator('[data-page="workflow"]').click();
     await page.getByRole('button', { name: '前払を登録' }).click();
@@ -499,6 +520,8 @@ try {
     // Follow the normal workflow from a new purchase through a bank transfer.
     await page.locator('[data-page="workflow"]').click();
     const regular = page.locator('[aria-labelledby=regularFlowTitle]');
+    assert.equal(await regular.getByRole('button', { name: '決済履歴を確認' }).isVisible(), true);
+    assert.equal(await regular.getByRole('button', { name: '月別転記用紙' }).isVisible(), true);
     await regular.getByRole('button', { name: '仕入を取り込む' }).click();
     await page.locator('#paste').fill('T001\tFLOW-PURCHASE\t2025-07-15\t1500');
     await page.locator('#import').click();
@@ -506,7 +529,8 @@ try {
     await page.locator('[data-page="workflow"]').click();
     await regular.getByRole('button', { name: 'INVOICEを登録' }).click();
     const invoiceForm = page.locator('#invoiceForm');
-    await invoiceForm.locator('[name=supplier_id]').selectOption(String(suppliers[0].id));
+    await supplierSearch.fill('T001');
+    await supplierSearch.press('Enter');
     await invoiceForm.locator('[name=settlement_method]').selectOption('transfer');
     await invoiceForm.locator('[name=invoice_number]').fill('FLOW-INVOICE');
     await invoiceForm.locator('[name=invoice_date]').fill('2025-07-15');

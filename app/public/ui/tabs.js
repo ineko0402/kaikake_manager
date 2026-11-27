@@ -41,6 +41,7 @@ export function tabs(component) {
     if (!t) return;
     if (!t.c[n]) return;
     t.selected = n;
+    if (id === 'invoices') $('invoiceSavebar').hidden = n !== 0;
     t.panels.forEach((p, i) => {
       p.style.display = t.c[n][1].includes(i) ? '' : 'none';
     });
