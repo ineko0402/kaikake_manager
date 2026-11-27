@@ -1,0 +1,139 @@
+body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.layout {
+  min-height: 0;
+}
+
+.layout > main,
+.layout > .sidebar {
+  overflow: auto;
+  min-height: 0;
+}
+
+.layout > main {
+  scrollbar-gutter: stable;
+}
+
+.layout > main > .status {
+  z-index: 1;
+}
+
+.workflow {
+  margin: 14px auto 20px;
+}
+
+.flowCard {
+  padding: 11px 15px;
+}
+
+.flowArrow {
+  padding: 1px;
+}
+
+.supplier-picker,
+.payment-editor {
+  display: grid;
+  gap: 12px;
+  align-items: start;
+}
+
+.supplier-picker {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 660px;
+}
+
+.supplier-picker small {
+  grid-column: 1 / -1;
+  min-height: 1em;
+}
+
+.payment-editor {
+  grid-template-columns: minmax(230px, 1fr) minmax(0, 2fr);
+}
+
+.payment-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.payment-allocation {
+  min-width: 0;
+}
+
+.payment-allocation .hint {
+  margin-top: 0;
+}
+
+#allocationChoices {
+  max-height: clamp(155px, 31vh, 360px);
+}
+
+#allocationChoices thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+#supplier .content {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+}
+
+#supplier .content.registration {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#supplier .content > section {
+  padding: 12px;
+  border-radius: 9px;
+  box-shadow: none;
+}
+
+#supplier .content h2 {
+  margin: 0;
+}
+
+#supplier .fields {
+  max-width: 960px;
+}
+
+.feedback-toolbar {
+  margin-bottom: 12px;
+}
+
+.feedback-toolbar select {
+  padding: 6px;
+}
+
+@media (max-width: 1050px) {
+  .payment-editor,
+  #supplier .content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 800px) {
+  .layout {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .layout > .sidebar {
+    padding: 4px 8px;
+    overflow-x: auto;
+  }
+
+  .layout > .sidebar > button {
+    width: auto;
+  }
+
+  .supplier-picker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
