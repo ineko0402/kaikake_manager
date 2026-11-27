@@ -119,17 +119,41 @@ export function invoices(component, model, today, filterStates) {
     });
   }
 
+  let arrivalId;
+  const arrivalDialog = $('invoiceArrivalDialog');
+  function openArrival(id) {
+    const invoice = model.invoices.find((row) => row.id === id);
+    if (!invoice) return;
+    arrivalId = id;
+    view.render({
+      invoiceArrivalTitle: { text: '仕入を紐付け — ' + invoice.invoice_number },
+      invoiceArrivalStatus: { text: '' },
+    });
+    renderArrivalChoices(invoice);
+    arrivalDialog.showModal();
+  }
+  component.on($('closeArrival'), 'click', 'closeArrival', () => arrivalDialog.close());
+  component.on($('openArrivalFromEdit'), 'click', 'openArrivalFromEdit', () =>
+    openArrival(Number($('invoiceEditForm').elements.id.value)),
+  );
   component.on($('invoiceArrivalForm'), 'submit', 'linkArrival', async ({ target }) => {
-    const id = Number($('invoiceEditForm').elements.id.value);
+    const id = arrivalId;
     const purchaseIds = Array.from(target.querySelectorAll('[name=purchase_ids]:checked'), (input) =>
       Number(input.value),
     );
-    if (!purchaseIds.length) return msg('紐付ける仕入明細を選択してください', true);
-    const result = await post('/api/invoices/' + id + '/purchases', { purchase_ids: purchaseIds });
-    await refresh();
-    const invoice = model.invoices.find((row) => row.id === id);
-    if (invoice && Number($('invoiceEditForm').elements.id.value) === id) renderArrivalChoices(invoice);
-    msg(`仕入明細 ${result.linked}件を紐付けました`);
+    if (!purchaseIds.length) {
+      view.render({ invoiceArrivalStatus: { text: '紐付ける仕入明細を選択してください' } });
+      return;
+    }
+    try {
+      const result = await post('/api/invoices/' + id + '/purchases', { purchase_ids: purchaseIds });
+      await refresh();
+      if (arrivalDialog.open && arrivalId === id) arrivalDialog.close();
+      msg(`仕入明細 ${result.linked}件を紐付けました`);
+    } catch (error) {
+      if (arrivalDialog.open && arrivalId === id)
+        view.render({ invoiceArrivalStatus: { text: error.message } });
+    }
   });
 
   component.on($('applyInvoiceTemplate'), 'click', 'applyInvoiceTemplate', () => {
@@ -201,6 +225,11 @@ export function invoices(component, model, today, filterStates) {
     const candidates = model.purchases.filter((p) => !p.invoice_id && p.supplier_id === sid);
     const details = $('invoicePurchaseDetails');
     details.hidden = !sid;
+    view.render({
+      invoicePurchaseShortcut: { hidden: !sid },
+      invoicePurchaseAvailable: { text: `未紐付け仕入 ${candidates.length}件` },
+      openInvoicePurchases: { disabled: !candidates.length },
+    });
     const hasCandidates = candidates.length > 0;
     if (choiceSupplier !== sid || (!hadPurchaseCandidates && hasCandidates)) details.open = hasCandidates;
     hadPurchaseCandidates = hasCandidates;
@@ -316,6 +345,13 @@ export function invoices(component, model, today, filterStates) {
         ? '請求総額 − 仕入合計：' + money(Number(raw) - sum, 'JPY')
         : '';
   }
+  component.on($('openInvoicePurchases'), 'click', 'openInvoicePurchases', () => {
+    const details = $('invoicePurchaseDetails');
+    details.open = true;
+    const summary = details.querySelector('summary');
+    summary.focus({ preventScroll: true });
+    summary.scrollIntoView({ block: 'start' });
+  });
   component.on($('onlyChosen'), 'change', 'showSelectedPurchases', renderPurchaseChoices);
   component.on($('invoiceForm'), 'input', 'updatePurchaseSummary', updatePurchaseSummary);
   component.on($('invoiceForm').elements.currency, 'change', 'updateInvoiceRate', updatePurchaseSummary);
@@ -332,6 +368,9 @@ export function invoices(component, model, today, filterStates) {
   function render() {
     supplier.refresh();
     view.render({ invoiceTable: { html: invoiceTable(model.invoices) } });
+    for (const button of view.all('.linkInvoicePurchases')) {
+      component.on(button, 'click', 'linkInvoicePurchases', () => openArrival(Number(button.dataset.id)));
+    }
     view.all('.editInvoice').forEach((b) =>
       component.on(b, 'click', 'editInvoice', () => {
         const i = model.invoices.find((x) => x.id === Number(b.dataset.id));
@@ -357,8 +396,6 @@ export function invoices(component, model, today, filterStates) {
           !!i.difference_reason ||
           !!i.due_override_reason ||
           i.usage_class !== 'purchase';
-        $('invoiceArrivalDetails').open = false;
-        renderArrivalChoices(i);
         $('invoiceEditPanel').hidden = false;
         updateDifference(f, i.currency);
         $('invoiceEditPanel').scrollIntoView({ behavior: 'smooth' });

@@ -87,8 +87,7 @@ export function transfers(component, model, today) {
     if (!date) return msg('実際の送金日を入力してください', true);
     try {
       const groups = remittanceGroups();
-      const totals = new Map();
-      for (const group of groups) totals.set(group.currency, (totals.get(group.currency) ?? 0) + group.total);
+      const totals = summarizeRemittance(groups);
       const lines = groups.map((group) => {
         const returns = group.items.filter((row) => row.amount < 0).reduce((sum, row) => sum + row.amount, 0);
         const deduction = returns ? `（返品 ${money(returns, group.currency)}を含む）` : '';
@@ -102,7 +101,7 @@ export function transfers(component, model, today) {
             `対象INVOICE ${items.length}件`,
             ...lines,
             '',
-            '通貨別合計　' + [...totals].map(([currency, amount]) => money(amount, currency)).join(' ／ '),
+            '通貨別合計　' + totals,
             '',
             '差引0は返品充当のみ記録します。正額の送金は銀行で実施後に確定してください。',
           ].join('\n'),
@@ -289,16 +288,29 @@ export function transfers(component, model, today) {
       })
       .join(' ');
   }
+  function summarizeRemittance(groups) {
+    const totals = new Map();
+    for (const group of groups) totals.set(group.currency, (totals.get(group.currency) ?? 0) + group.total);
+    return [...totals].map(([currency, amount]) => money(amount, currency)).join(' ／ ');
+  }
   function renderRemittance() {
     $('transferReview').hidden = !selected.size;
+    const count = `選択 ${selected.size}件`;
+    const summary = $('transferSelectionSummary');
+    summary.textContent = count;
     const root = $('remittanceCards');
     root.replaceChildren();
     let groups;
     try {
       groups = remittanceGroups();
     } catch (e) {
-      root.textContent = e.message;
+      summary.textContent = count + ' ／ ' + e.message;
       return;
+    }
+    if (groups.length) {
+      const includesReturns = groups.some((group) => group.items.some((row) => row.amount < 0));
+      summary.textContent =
+        count + ' ／ ' + summarizeRemittance(groups) + (includesReturns ? '（返品含む）' : '');
     }
     const next = new Map();
     for (const g of groups) {

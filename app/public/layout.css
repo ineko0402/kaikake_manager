@@ -393,19 +393,19 @@ body > header > div {
   top: 0;
   z-index: 3;
   background: #f4f6f9;
-  padding-bottom: 6px;
+  padding-block: 4px 6px;
 }
 
-.invoice-heading h1 {
-  margin: 0;
+.invoice-heading .tabs {
+  margin-block: 0 4px;
 }
 
 .invoice-savebar[hidden] {
   display: none;
 }
 
-#invoiceForm :is(input, select) {
-  scroll-margin-top: 155px;
+#invoiceForm :is(input, select, summary) {
+  scroll-margin-top: 108px;
 }
 
 #invoiceForm .invoice-fields {
@@ -466,4 +466,52 @@ body > header > div {
 
 .payment-fields > .supplier-picker {
   grid-column: 1 / -1;
+}
+
+.operation-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 8px;
+  margin-top: 8px;
+  border: 1px solid #b8c4d1;
+  border-radius: 6px;
+  background: white;
+}
+
+.operation-bar[hidden],
+.invoice-purchase-shortcut[hidden] {
+  display: none;
+}
+
+#allocSummary,
+#transferSelectionSummary {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.layout > main:has(.operation-bar:not([hidden])) {
+  scroll-padding-bottom: 112px;
+}
+
+.layout > main > #status:empty {
+  min-height: 0;
+  padding: 0;
+}
+
+.layout > main > #status:not(:empty) {
+  z-index: 3;
+}
+
+.layout > main:has(> #status:not(:empty)) .operation-bar {
+  bottom: 44px;
+}
+
+.invoice-purchase-shortcut {
+  margin-block: 8px;
+}
+
+#invoiceArrivalDialog {
+  max-height: 85vh;
 }
