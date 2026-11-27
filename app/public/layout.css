@@ -195,6 +195,19 @@ summary {
   margin-top: 18px;
 }
 
+#voucherSheet table:first-of-type th {
+  white-space: nowrap;
+}
+
+#voucherSheet .voucher-nowrap {
+  white-space: nowrap;
+}
+
+#voucherSheet .voucher-amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .voucher-rate {
   display: block;
 }
@@ -262,8 +275,28 @@ summary {
     background: transparent;
   }
 
+  #voucherSheet {
+    font-size: 9pt;
+    line-height: 1.3;
+  }
+
+  #voucherSheet h1 {
+    font-size: 14pt;
+    margin: 0 0 4mm;
+  }
+
+  #voucherSheet h2 {
+    font-size: 11pt;
+  }
+
+  #voucherSheet table {
+    font-size: inherit;
+  }
+
   #voucherSheet th,
   #voucherSheet td {
+    padding: 3px 5px;
+    vertical-align: top;
     border: 1px solid #777;
     color: black;
     background: white;

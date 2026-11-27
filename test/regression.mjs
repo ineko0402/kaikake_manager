@@ -185,6 +185,17 @@ try {
     assert.match(await sheet.innerText(), /2026年11月　決済 3件/);
     assert.match(await sheet.innerText(), /参考 150 円 \/ USD/);
     assert.equal(await sheet.locator('table').first().locator('tbody tr').count(), 3);
+    const ledger = sheet.locator('table').first();
+    assert.deepEqual((await ledger.locator('th').allTextContents()).slice(3, 5), ['決済額', '仕入額（円）']);
+    const transferRow = ledger.locator('tbody tr').filter({ hasText: 'TEST-PARTIAL' });
+    assert.equal(await transferRow.locator('td').nth(4).innerText(), '27,000 JPY');
+    assert.equal(
+      await transferRow
+        .locator('td')
+        .nth(2)
+        .evaluate((cell) => getComputedStyle(cell).whiteSpace),
+      'nowrap',
+    );
     assert.equal(await sheet.locator('table').last().locator('tbody tr').count(), 3);
     await page.evaluate(() => {
       window.print = () => {

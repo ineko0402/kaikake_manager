@@ -7,7 +7,9 @@ function presentWorksheet(month, payments) {
   const rows = payments.map((payment) => {
     const amount = (minor) => money(minor, payment.currency);
     totals.set(payment.currency, (totals.get(payment.currency) ?? 0) + payment.amount_minor);
+    const purchasesByInvoice = new Map();
     const allocations = payment.allocations.map((row) => {
+      if (row.invoice_jpy != null) purchasesByInvoice.set(row.invoice_id, row.invoice_jpy);
       const rate = invoiceReferenceRate(row.invoice_jpy, row.invoice_total_minor, row.invoice_currency);
       return `<div>${esc(row.invoice_number)}　${esc(row.allocation_date)}　${esc(amount(row.amount_minor))}${
         rate ? `<small class="voucher-rate">参考 ${esc(rate)}</small>` : ''
@@ -24,11 +26,18 @@ function presentWorksheet(month, payments) {
         ? `<small class="voucher-rate">支払先 ${esc(payment.payee_name)}</small>`
         : '';
     const note = payment.note ? `<small class="voucher-rate voucher-note">${esc(payment.note)}</small>` : '';
+    const purchaseAmount = purchasesByInvoice.size
+      ? money(
+          [...purchasesByInvoice.values()].reduce((sum, yen) => sum + yen, 0),
+          'JPY',
+        )
+      : '—';
     return `<tr>
       <td>${esc(payment.payment_date)}<small class="voucher-rate">#${payment.id}</small></td>
       <td>${esc(payment.supplier_code)} ${esc(payment.supplier_name)}${payee}${note}</td>
-      <td>${esc(methods[payment.method])}</td>
-      <td>${esc(amount(payment.amount_minor))}</td>
+      <td class="voucher-nowrap">${esc(methods[payment.method])}</td>
+      <td class="voucher-nowrap voucher-amount">${esc(amount(payment.amount_minor))}</td>
+      <td class="voucher-nowrap voucher-amount">${esc(purchaseAmount)}</td>
       <td>${details}${remaining}</td>
     </tr>`;
   });
@@ -38,7 +47,8 @@ function presentWorksheet(month, payments) {
     <h1 id="voucherTitle">振替伝票 月別転記用紙</h1>
     <p>${esc(year)}年${Number(mm)}月　決済 ${payments.length}件</p>
     <p>記録通貨別の決済額合計（相殺を含む）　${esc(totalText)}</p>
-    ${table(['決済日・ID', '仕入先', '方法', '決済額', 'INVOICE・充当額'], rows)}
+    ${table(['決済日・ID', '仕入先', '方法', '決済額', '仕入額（円）', 'INVOICE・充当額'], rows)}
+    <p>仕入額は充当先のINVOICEに紐付く円合計です。分割決済では同じ仕入額が別の決済行にも載ります。</p>
     <h2>手書き欄</h2>
     ${table(
       ['決済ID', '伝票番号', '借方科目・円金額', '貸方科目・円金額', '摘要・レート'],

@@ -64,7 +64,7 @@ module.exports=function makeApi(db,root){
    FROM payments p JOIN suppliers s ON s.id=p.supplier_id
    WHERE ${period} ORDER BY p.payment_date,p.id`,start,end);
   const byId=new Map(payments.map(payment=>[payment.id,{...payment,allocations:[],expenses:[],allocated_minor:0,expensed_minor:0}]));
-  for(const {payment_id,...allocation} of all(`SELECT a.payment_id,i.invoice_number,a.allocation_date,a.amount_minor,
+  for(const {payment_id,...allocation} of all(`SELECT a.payment_id,a.invoice_id,i.invoice_number,a.allocation_date,a.amount_minor,
    i.total_minor invoice_total_minor,i.currency invoice_currency,
    (SELECT SUM(pu.amount_jpy) FROM purchases pu WHERE pu.invoice_id=i.id AND pu.status='active') invoice_jpy
    FROM allocations a JOIN invoices i ON i.id=a.invoice_id JOIN payments p ON p.id=a.payment_id
