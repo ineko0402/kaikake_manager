@@ -118,6 +118,27 @@ try {
   assert.equal(await balance(), 2000);
   await api('invoices/' + registeredInvoice.id + '/cancel', { reason: '回帰テスト' });
   await api('purchases/' + registered.ids[0] + '/cancel', { reason: '回帰テスト' });
+  const advanceInvoice = byNumber['TEST-ADVANCE'];
+  const arrival = await api('purchases/import', {
+    text: 'T002\tCHECK-ARRIVAL\t2026-11-12\t7000',
+  });
+  const advancePayment = (await api('payments')).find((row) => row.method === 'advance');
+  await api('allocations', {
+    payment_id: advancePayment.id,
+    invoice_id: advanceInvoice.id,
+    allocation_date: '2026-11-12',
+    amount: String(advanceInvoice.remaining_minor),
+  });
+  const originalBalance = (await api('invoices')).find((row) => row.id === advanceInvoice.id).remaining_minor;
+  assert.equal(originalBalance, 0);
+  const beforeAdvancePayment = (await api('payments')).find((row) => row.id === advancePayment.id);
+  const invalidLink = await fetch(base + `/api/invoices/${advanceInvoice.id}/purchases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ purchase_ids: [arrival.ids[0], purchases[0].id] }),
+  });
+  assert.equal(invalidLink.status, 400);
+  assert.equal((await api('purchases')).find((row) => row.id === arrival.ids[0]).invoice_id, null);
   const backup = await api('backup', {});
   assert((await api('backups')).includes(backup.file));
   const db = new DatabaseSync(join(instance, 'data', 'kaikake.db'), { readOnly: true });
@@ -381,6 +402,27 @@ try {
     await page.locator('[data-page="payments"]').click();
     assert(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight));
     assert(await page.evaluate(() => document.documentElement.scrollWidth === innerWidth));
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.locator('[data-page="workflow"]').click();
+    await page.getByText('前払いの業務フロー', { exact: true }).click();
+    await page.getByRole('button', { name: '登録済みINVOICEを開く' }).click();
+    await page.locator(`.editInvoice[data-id="${advanceInvoice.id}"]`).click();
+    await page.locator('#invoiceArrivalDetails summary').click();
+    await page.getByRole('checkbox', { name: 'CHECK-ARRIVAL 枝番1' }).check();
+    await page.locator('#linkArrival').click();
+    await page.getByText('仕入明細 1件を紐付けました').waitFor();
+    assert.equal(
+      (await api('purchases')).find((row) => row.id === arrival.ids[0]).invoice_id,
+      advanceInvoice.id,
+    );
+    assert.equal(
+      (await api('invoices')).find((row) => row.id === advanceInvoice.id).remaining_minor,
+      originalBalance,
+    );
+    assert.deepEqual(
+      (await api('payments')).find((row) => row.id === beforeAdvancePayment.id),
+      beforeAdvancePayment,
+    );
     assert.deepEqual(issues, []);
     console.log('Browser selection, filtering, remittance history and suppliers passed');
   }

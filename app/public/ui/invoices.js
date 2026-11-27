@@ -93,6 +93,38 @@ export function invoices(component, model, today, filterStates) {
       msg(e.message, true);
     }
   });
+  function renderArrivalChoices(invoice) {
+    const rows = model.purchases.filter((row) => row.supplier_id === invoice.supplier_id && !row.invoice_id);
+    const html = table(
+      ['選択', '発注番号', '枝番', '仕入日', '仕入額'],
+      rows.map(
+        (row) => `<tr><td><input type="checkbox" name="purchase_ids" value="${row.id}"
+        aria-label="${esc(row.order_number)} 枝番${row.branch_number}"></td>
+        <td>${esc(row.order_number)}</td><td>${row.branch_number}</td>
+        <td>${esc(row.purchase_date)}</td><td>${money(row.amount_jpy, 'JPY')}</td></tr>`,
+      ),
+    );
+    view.render({
+      invoiceArrivalChoices: rows.length
+        ? { html }
+        : { text: 'この仕入先に未紐付けの仕入明細はありません。' },
+      linkArrival: { disabled: !rows.length },
+    });
+  }
+
+  component.on($('invoiceArrivalForm'), 'submit', 'linkArrival', async ({ target }) => {
+    const id = Number($('invoiceEditForm').elements.id.value);
+    const purchaseIds = Array.from(target.querySelectorAll('[name=purchase_ids]:checked'), (input) =>
+      Number(input.value),
+    );
+    if (!purchaseIds.length) return msg('紐付ける仕入明細を選択してください', true);
+    const result = await post('/api/invoices/' + id + '/purchases', { purchase_ids: purchaseIds });
+    await refresh();
+    const invoice = model.invoices.find((row) => row.id === id);
+    if (invoice && Number($('invoiceEditForm').elements.id.value) === id) renderArrivalChoices(invoice);
+    msg(`仕入明細 ${result.linked}件を紐付けました`);
+  });
+
   component.on($('applyInvoiceTemplate'), 'click', 'applyInvoiceTemplate', () => {
     const f = $('invoiceForm'),
       s = model.suppliers.find((x) => x.id === Number(f.elements.supplier_id.value));
@@ -309,6 +341,8 @@ export function invoices(component, model, today, filterStates) {
           !!i.difference_reason ||
           !!i.due_override_reason ||
           i.usage_class !== 'purchase';
+        $('invoiceArrivalDetails').open = false;
+        renderArrivalChoices(i);
         $('invoiceEditPanel').hidden = false;
         updateDifference(f, i.currency);
         $('invoiceEditPanel').scrollIntoView({ behavior: 'smooth' });

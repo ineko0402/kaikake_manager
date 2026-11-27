@@ -319,3 +319,15 @@ body .tabs {
   margin: 0;
   padding: 6px 9px;
 }
+
+.advance-workflow h2 {
+  margin-top: 16px;
+}
+
+.advance-workflow li {
+  margin-block: 6px;
+}
+
+#invoiceArrivalChoices {
+  max-height: 32vh;
+}
