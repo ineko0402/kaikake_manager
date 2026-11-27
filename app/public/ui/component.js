@@ -58,6 +58,20 @@ class PassiveView {
     }
   }
 
+  observeHistory() {
+    window.addEventListener('popstate', (event) => this.#notify('restorePage', event.state?.kaikake));
+  }
+
+  historyPage() {
+    return window.history.state?.kaikake;
+  }
+
+  saveHistoryPage(page, replace = false) {
+    const state = { kaikake: page };
+    if (replace) window.history.replaceState(state, '');
+    else window.history.pushState(state, '');
+  }
+
   observeUnload() {
     window.addEventListener('beforeunload', (event) => {
       if (this.#notify('beforeUnload')) event.preventDefault();

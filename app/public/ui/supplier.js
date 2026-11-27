@@ -120,6 +120,7 @@ export function supplier(component, model) {
     if (confirmDiscard()) {
       fill(null);
       supplierTab(0);
+      component.emit('tabChanged', 'supplier');
     }
   });
   component.on($('discard'), 'click', 'discardSupplierEdit', () => {
@@ -161,9 +162,11 @@ export function supplier(component, model) {
   tabs.className = 'tabs';
   tabs.innerHTML = '<button type="button">新規登録</button><button type="button">仕入先一覧</button>';
   view.scope.querySelector('h1').after(tabs);
+  let activeTab = 1;
   function supplierTab(n) {
+    activeTab = n;
     view.scope.querySelector('.listpanel').style.display = n ? '' : 'none';
-    view.scope.querySelector('.editor').style.display = n ? 'none' : '';
+    view.scope.querySelector('.editor').style.display = n && selectedId === null ? 'none' : '';
     view.scope.querySelector('.content').classList.toggle('registration', n === 0);
     [...tabs.children].forEach((button, index) => {
       button.classList.toggle('active', index === n);
@@ -174,15 +177,17 @@ export function supplier(component, model) {
     if (confirmDiscard()) {
       fill(null);
       supplierTab(0);
+      component.emit('tabChanged', 'supplier');
     }
   });
   component.on(tabs.children[1], 'click', 'supplierManagementTab', () => {
     if (confirmDiscard()) {
       fill(null);
       supplierTab(1);
+      component.emit('tabChanged', 'supplier');
       return refresh();
     }
   });
   supplierTab(1);
-  return { render, dirty: () => dirty };
+  return { render, dirty: () => dirty, selectedTab: () => activeTab, setTab: supplierTab };
 }

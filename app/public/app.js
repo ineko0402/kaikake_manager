@@ -69,28 +69,48 @@ class AppMediator {
       if (input.name !== 'due_date') input.value = today;
     }
     view.observeUnload();
+    view.observeHistory();
   }
 
   async start() {
-    await this.refresh();
-    await Promise.all([this.#screens.transfers.load(), this.#screens.backup.load()]);
+    const saved = this.#root.view.historyPage();
+    if (saved) await this.navigate(saved, true);
+    else {
+      this.#root.view.saveHistoryPage({ page: this.#page }, true);
+      await this.refresh();
+    }
+    await this.#screens.backup.load();
+  }
+
+  #savePage(filter) {
+    const view = this.#root.view;
+    const page = this.#page;
+    const tab = this.#screens[page]?.selectedTab?.() ?? this.#tabs.selected(page);
+    const current = view.historyPage();
+    if (current?.page === page && current.tab === tab && (filter === undefined || current.filter === filter))
+      return;
+    view.saveHistoryPage({ page, tab, filter });
   }
 
   status(text, error = false) {
     this.#root.view.render({ status: { text, className: error ? 'status error' : 'status' } });
   }
 
-  async navigate({ page, tab, filter, plan, currentMonth }) {
+  async navigate({ page, tab, filter, plan, currentMonth }, restoring = false) {
     if (!this.#root.view.find(page)?.classList.contains('page')) return;
     if (page !== this.#page) this.#root.view.scope.querySelector('main').scrollTop = 0;
     this.#page = page;
     if (filter !== undefined) this.#filters.reset(tableByPage[page], filter);
-    if (tab !== undefined) this.#tabs.set(page, tab);
+    if (tab !== undefined) {
+      if (this.#screens[page]?.setTab) this.#screens[page].setTab(tab);
+      else this.#tabs.set(page, tab);
+    }
     if (plan) this.#screens.transfers.plan(currentMonth);
     for (const section of this.#root.view.all('.page'))
       section.classList.toggle('active', section.id === page);
     for (const nav of this.#root.view.all('[data-page]'))
       nav.classList.toggle('active', nav.dataset.page === page);
+    if (!restoring) this.#savePage(filter);
     this.status('');
     await this.refresh();
     if (page !== this.#page) return;
@@ -129,6 +149,14 @@ class AppMediator {
         return this.status(detail.text, detail.error);
       case 'navigate':
         return this.navigate(detail).catch((error) => this.status(error.message, true));
+      case 'tabChanged':
+        if (detail === this.#page) this.#savePage();
+        return;
+      case 'restorePage':
+        for (const dialog of this.#root.view.all('dialog[open]')) dialog.close();
+        return this.navigate(detail ?? { page: 'dashboard' }, true).catch((error) =>
+          this.status(error.message, true),
+        );
       case 'refresh':
         return this.refresh();
       case 'filter':

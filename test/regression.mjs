@@ -406,11 +406,30 @@ try {
     await page.locator('[data-page="workflow"]').click();
     await page.getByText('前払いの業務フロー', { exact: true }).click();
     await page.getByRole('button', { name: '登録済みINVOICEを開く' }).click();
+    const unlinkedInvoice = page.locator('#invoiceTable tr').filter({ hasText: 'TEST-UNPAID' });
+    await unlinkedInvoice.getByText('未紐付け', { exact: true }).waitFor();
+    const advanceRow = page.locator('#invoiceTable tr').filter({ hasText: 'TEST-ADVANCE' });
+    assert.equal(await advanceRow.locator('td').nth(3).innerText(), '1件');
+    await page.goBack();
+    await page.locator('#workflow.active').waitFor();
+    await page.goForward();
+    await page.locator('#invoices.active').waitFor();
+    assert.equal(await page.locator('#invoices .tabs button.active').innerText(), '登録済みINVOICE');
+
     await page.locator(`.editInvoice[data-id="${advanceInvoice.id}"]`).click();
     await page.locator('#invoiceArrivalDetails summary').click();
     await page.getByRole('checkbox', { name: 'CHECK-ARRIVAL 枝番1' }).check();
     await page.locator('#linkArrival').click();
     await page.getByText('仕入明細 1件を紐付けました').waitFor();
+    assert.equal(await advanceRow.locator('td').nth(3).innerText(), '2件');
+    await page.getByRole('button', { name: '新しいINVOICE', exact: true }).click();
+    await page.goBack();
+    await page.locator('#invoices .tabs button.active').filter({ hasText: '登録済みINVOICE' }).waitFor();
+    await page.goForward();
+    await page.locator('#invoices .tabs button.active').filter({ hasText: '新しいINVOICE' }).waitFor();
+    await page.reload();
+    await page.locator('#invoices.active .tabs button.active').filter({ hasText: '新しいINVOICE' }).waitFor();
+
     assert.equal(
       (await api('purchases')).find((row) => row.id === arrival.ids[0]).invoice_id,
       advanceInvoice.id,

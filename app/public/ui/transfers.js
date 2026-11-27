@@ -176,7 +176,10 @@ export function transfers(component, model, today) {
     $('actualPanel').hidden = n !== 1;
     $('planTab').classList.toggle('active', n === 0);
     $('actualTab').classList.toggle('active', n === 1);
-    if (load) n === 0 ? loadTransfers() : loadActual();
+    if (load) {
+      component.emit('tabChanged', 'transfers');
+      return n === 0 ? loadTransfers() : loadActual();
+    }
   }
   component.on($('planTab'), 'click', 'showPlanTab', () => setTransferTab(0));
   component.on($('actualTab'), 'click', 'showActualTab', () => setTransferTab(1));
@@ -357,10 +360,11 @@ export function transfers(component, model, today) {
   }
   return {
     enter: () => (transferTab === 0 ? loadTransfers() : loadActual()),
+    selectedTab: () => transferTab,
+    setTab: (tab) => setTransferTab(tab, false),
     plan: (currentMonth) => {
       if (currentMonth) $('month').value = today.slice(0, 7);
       setTransferTab(0, false);
     },
-    load: loadTransfers,
   };
 }

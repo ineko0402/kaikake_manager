@@ -28,6 +28,7 @@ export function tabs(component) {
       b.textContent = label;
       component.on(b, 'click', 'changeTab', () => {
         setTab(id, n);
+        component.emit('tabChanged', id);
         component.emit('filter');
       });
       tabs.append(b);
@@ -39,6 +40,7 @@ export function tabs(component) {
     const t = tabState[id];
     if (!t) return;
     if (!t.c[n]) return;
+    t.selected = n;
     t.panels.forEach((p, i) => {
       p.style.display = t.c[n][1].includes(i) ? '' : 'none';
     });
@@ -47,5 +49,5 @@ export function tabs(component) {
       b.setAttribute('aria-pressed', String(i === n));
     });
   }
-  return { set: setTab };
+  return { set: setTab, selected: (id) => tabState[id]?.selected };
 }
