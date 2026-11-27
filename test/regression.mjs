@@ -211,6 +211,7 @@ try {
     assert.equal(await supplierSearch.inputValue(), 'T001 テスト商事');
     assert.equal(await page.locator('#invoiceForm [name=supplier_id]').inputValue(), String(suppliers[0].id));
     assert.equal(await purchaseDetails.evaluate((node) => node.open), true);
+    assert.match(await page.locator('#invoicePurchaseAvailable').innerText(), /未紐付け仕入 1件/);
     await page.setViewportSize({ width: 640, height: 500 });
     const main = page.locator('main');
     await main.evaluate((node) => {
@@ -222,13 +223,14 @@ try {
     const heading = await page
       .locator('.invoice-heading')
       .evaluate((node) => node.getBoundingClientRect().top);
+    assert((await page.locator('.invoice-heading').boundingBox()).height < 100);
     const scrolled = await main.evaluate((node) => node.scrollTop);
     assert(
       scrolled > 100 && heading >= mainTop && heading < mainTop + 18,
       JSON.stringify({ heading, mainTop, tabTop, stickyTop, scrolled }),
     );
     assert(
-      tabTop > heading && tabTop < heading + 70,
+      tabTop >= heading && tabTop < heading + 30,
       JSON.stringify({ heading, mainTop, tabTop, stickyTop }),
     );
     assert(stickyTop > tabTop && stickyTop < mainTop + 125);
@@ -354,6 +356,15 @@ try {
       .nth(2)
       .click({ modifiers: ['Shift'] });
     assert.match(await page.locator('#allocSummary').innerText(), /選択 3件/);
+    for (const width of [950, 640]) {
+      await page.setViewportSize({ width, height: 720 });
+      await page.locator('main').evaluate((node) => {
+        node.scrollTop = 0;
+      });
+      const review = await page.locator('#reviewPayment').boundingBox();
+      assert(review.y >= 0 && review.y + review.height <= 720);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
     await paymentSupplier.fill('T002');
     assert.equal(await paymentSupplier.evaluate((field) => field.validity.valid), false);
     assert.match(await page.locator('#allocSummary').innerText(), /選択 3件/);
@@ -417,6 +428,23 @@ try {
     assert.equal(await page.locator('#transferReview').isVisible(), false);
     await unpaid.locator('input[type=checkbox]').check();
     assert.equal(await page.locator('#transferReview').isVisible(), true);
+    assert.match(await page.locator('#transferSelectionSummary').innerText(), /選択 1件.*60\.00 USD/);
+    const returnRow = page.locator('#transferTable tr').filter({ hasText: 'TEST-RETURN-OPEN' });
+    await returnRow.locator('.transferCheck').check();
+    assert.match(
+      await page.locator('#transferSelectionSummary').innerText(),
+      /選択 2件.*55\.00 USD.*返品含む/,
+    );
+    await returnRow.locator('.transferCheck').uncheck();
+    for (const width of [950, 640]) {
+      await page.setViewportSize({ width, height: 720 });
+      await page.locator('main').evaluate((node) => {
+        node.scrollTop = 0;
+      });
+      const review = await page.locator('#confirmTransfers').boundingBox();
+      assert(review.y >= 0 && review.y + review.height <= 720);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
     const draft = page.locator('#remittanceCards textarea');
     assert.equal(await draft.inputValue(), 'CHECK TEST-UNPAID(60)');
     await draft.fill('edited message for regression');
@@ -487,8 +515,9 @@ try {
     await page.locator('#invoices.active').waitFor();
     assert.equal(await page.locator('#invoices .tabs button.active').innerText(), '登録済みINVOICE');
 
-    await page.locator(`.editInvoice[data-id="${advanceInvoice.id}"]`).click();
-    await page.locator('#invoiceArrivalDetails summary').click();
+    await page.locator(`.linkInvoicePurchases[data-id="${advanceInvoice.id}"]`).click();
+    assert.match(await page.locator('#invoiceArrivalTitle').innerText(), /TEST-ADVANCE/);
+    assert.equal(await page.locator('#invoiceEditPanel').isVisible(), false);
     await page.getByRole('checkbox', { name: 'CHECK-ARRIVAL 枝番1' }).check();
     await page.locator('#linkArrival').click();
     await page.getByText('仕入明細 1件を紐付けました').waitFor();

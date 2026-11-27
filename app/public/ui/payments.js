@@ -99,7 +99,7 @@ export function payments(component, model, today, filterStates) {
     view.render({
       paymentAllocation: { hidden: !sid },
       paymentStartHint: { hidden: Boolean(sid) },
-      reviewPayment: { hidden: !sid },
+      paymentReviewBar: { hidden: !sid },
     });
     const candidates = model.invoices.filter(
       (i) => i.supplier_id === sid && i.currency === c && i.remaining_minor !== 0,

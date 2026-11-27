@@ -22,7 +22,8 @@ export function tabs(component) {
       panels = [...section.querySelectorAll(':scope > .panel')];
     const tabs = view.create('div');
     tabs.className = 'tabs';
-    section.querySelector('h1').after(tabs);
+    if (id === 'invoices') section.querySelector('.invoice-heading').prepend(tabs);
+    else section.querySelector('h1').after(tabs);
     for (const [n, [label]] of c.entries()) {
       const b = view.create('button');
       b.textContent = label;

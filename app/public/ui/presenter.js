@@ -47,7 +47,7 @@ export function invoiceTable(rows) {
     ['ID', '仕入先', '番号', '仕入の紐付け', '請求日', '総額', '残高', '予定日', '操作'],
     rows.map(
       (i) =>
-        `<tr><td>${i.id}</td><td>${esc(i.supplier_name)}</td><td>${esc(i.invoice_number)}</td><td>${i.purchase_count ? `${i.purchase_count}件` : '<strong class="pill">未紐付け</strong>'}</td><td>${i.invoice_date}</td><td>${money(i.total_minor, i.currency)}${i.difference_reason ? '<small style="display:block">' + esc(i.difference_reason) + '</small>' : ''}</td><td>${money(i.remaining_minor, i.currency)}</td><td>${i.due_date || '未設定'}</td><td><button class="editInvoice" data-id="${i.id}">編集</button><button class="cancelInvoice" data-id="${i.id}">取消</button></td></tr>`,
+        `<tr><td>${i.id}</td><td>${esc(i.supplier_name)}</td><td>${esc(i.invoice_number)}</td><td>${i.purchase_count ? `${i.purchase_count}件` : '<strong class="pill">未紐付け</strong>'}</td><td>${i.invoice_date}</td><td>${money(i.total_minor, i.currency)}${i.difference_reason ? '<small class="subtext">' + esc(i.difference_reason) + '</small>' : ''}</td><td>${money(i.remaining_minor, i.currency)}</td><td>${i.due_date || '未設定'}</td><td><button type="button" class="linkInvoicePurchases" data-id="${i.id}">仕入を紐付け</button><button class="editInvoice" data-id="${i.id}">編集</button><button class="cancelInvoice" data-id="${i.id}">取消</button></td></tr>`,
     ),
   );
 }
@@ -86,7 +86,7 @@ export function feedbackTable(rows) {
     ['日時', '分類', '画面', '内容', '版', '対応'],
     rows.map(
       (x) =>
-        `<tr><td>${esc(x.created_at)}</td><td>${esc(x.category)}</td><td>${esc(x.page)}</td><td style="white-space:pre-wrap">${esc(x.content)}</td><td>${esc(x.version)}</td><td><input type="checkbox" data-feedback="${x.id}" ${x.done ? 'checked' : ''}></td></tr>`,
+        `<tr><td>${esc(x.created_at)}</td><td>${esc(x.category)}</td><td>${esc(x.page)}</td><td class="preserve-lines">${esc(x.content)}</td><td>${esc(x.version)}</td><td><input type="checkbox" data-feedback="${x.id}" ${x.done ? 'checked' : ''}></td></tr>`,
     ),
   );
 }
@@ -102,9 +102,9 @@ export function transferTable(rows) {
   for (const [key, items] of groups) {
     const [payee, bank, currency] = JSON.parse(key);
     const total = items.reduce((n, x) => n + x.remaining_minor, 0);
-    html += `<tr style="background:#eef3f9"><td><input type="checkbox" class="groupCheck" data-ids="${items.map((x) => x.id).join(',')}"></td><td><strong>${esc(payee)}</strong></td><td>${esc(bank)}</td><td>${esc(currency)}</td><td>${money(total, currency)}</td></tr>`;
+    html += `<tr class="transfer-group"><td><input type="checkbox" class="groupCheck" data-ids="${items.map((x) => x.id).join(',')}"></td><td><strong>${esc(payee)}</strong></td><td>${esc(bank)}</td><td>${esc(currency)}</td><td>${money(total, currency)}</td></tr>`;
     for (const i of items)
-      html += `<tr><td><input type="checkbox" class="transferCheck" data-id="${i.id}"></td><td>　${esc(i.invoice_number)}</td><td>${esc(i.supplier_name)}</td><td>${i.due_date || '未設定'}</td><td>${money(i.remaining_minor, i.currency)} <input class="transferAmount compact" data-id="${i.id}" aria-label="${esc(i.invoice_number)}の送金額" placeholder="全額（変更可）" style="width:115px"></td></tr>`;
+      html += `<tr><td><input type="checkbox" class="transferCheck" data-id="${i.id}"></td><td>　${esc(i.invoice_number)}</td><td>${esc(i.supplier_name)}</td><td>${i.due_date || '未設定'}</td><td>${money(i.remaining_minor, i.currency)} <input class="transferAmount compact transfer-amount-input" data-id="${i.id}" aria-label="${esc(i.invoice_number)}の送金額" placeholder="全額（変更可）"></td></tr>`;
   }
   return table(['選択', '支払先・INVOICE', '受取人コード／仕入先', '通貨／予定日', '残高'], [html]);
 }
@@ -118,7 +118,7 @@ export function transferHistory(actualRows) {
         ['送金日', '支払先', '仕入先', '区分', '通貨', '送金額', 'INVOICE明細', '送金メッセージ'],
         actualRows.map(
           (r) =>
-            `<tr><td>${esc(r.payment_date)}</td><td>${esc(r.payee_name)}</td><td>${esc(r.supplier_name)}</td><td>${r.method === 'advance' ? '前払' : '通常送金'}</td><td>${esc(r.currency)}</td><td>${money(r.amount_minor, r.currency)}</td><td><details><summary>${r.allocations.length}件</summary>${r.allocations.map((a) => `<div>${esc(a.invoice_number)}：${money(a.amount_minor, r.currency)}</div>`).join('') || '未充当'}</details></td><td>${r.remittance_message == null ? '未記録' : `<details><summary>表示</summary><pre style="white-space:pre-wrap">${esc(r.remittance_message)}</pre></details>`}</td></tr>`,
+            `<tr><td>${esc(r.payment_date)}</td><td>${esc(r.payee_name)}</td><td>${esc(r.supplier_name)}</td><td>${r.method === 'advance' ? '前払' : '通常送金'}</td><td>${esc(r.currency)}</td><td>${money(r.amount_minor, r.currency)}</td><td><details><summary>${r.allocations.length}件</summary>${r.allocations.map((a) => `<div>${esc(a.invoice_number)}：${money(a.amount_minor, r.currency)}</div>`).join('') || '未充当'}</details></td><td>${r.remittance_message == null ? '未記録' : `<details><summary>表示</summary><pre class="preserve-lines">${esc(r.remittance_message)}</pre></details>`}</td></tr>`,
         ),
       )
     : '対象月の送金実績はありません。';

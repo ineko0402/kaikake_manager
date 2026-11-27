@@ -26,7 +26,7 @@ export function supplier(component, model) {
   ];
   function message(s, error = false) {
     $('message').textContent = s;
-    $('message').style.color = error ? '#b13b3b' : '#236d4b';
+    $('message').classList.toggle('error', error);
   }
   function confirmDiscard() {
     return !dirty || view.confirm('未保存の編集内容があります。破棄して移動しますか？');
