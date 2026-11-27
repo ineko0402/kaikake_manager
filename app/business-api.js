@@ -1,4 +1,4 @@
-// 買掛管理 v0.2.0 - 業務API
+// 買掛管理 v0.5.0 - 業務API
 'use strict';
 const {backup}=require('node:sqlite');
 const fs=require('node:fs');const path=require('node:path');
@@ -21,7 +21,7 @@ module.exports=function makeApi(db,root){
  const fmt=(n,c)=>c==='JPY'?String(n):(n/100).toFixed(2);
  return async function handle(req,url,body){const p=url.pathname,method=req.method;
  if(p==='/api/feedback'&&method==='GET')return all('SELECT * FROM feedback ORDER BY id DESC');
- if(p==='/api/feedback'&&method==='POST')return {id:Number(run('INSERT INTO feedback(category,page,content,version) VALUES (?,?,?,?)',required(body.category,'分類'),required(body.page,'画面'),required(body.content,'内容'),'v0.4.8').lastInsertRowid)};
+ if(p==='/api/feedback'&&method==='POST')return {id:Number(run('INSERT INTO feedback(category,page,content,version) VALUES (?,?,?,?)',required(body.category,'分類'),required(body.page,'画面'),required(body.content,'内容'),'v0.5.0').lastInsertRowid)};
  const fm=p.match(/^\/api\/feedback\/(\d+)$/);if(fm&&method==='PUT'){run('UPDATE feedback SET done=? WHERE id=?',body.done?1:0,Number(fm[1]));return {ok:true};}
  if(p==='/api/dashboard'&&method==='GET'){const inv=all("SELECT i.*,s.name supplier_name FROM invoices i JOIN suppliers s ON s.id=i.supplier_id WHERE i.status='active' ORDER BY i.due_date,i.id");return {invoices:inv.map(i=>({...i,remaining_minor:balance(i.id)})),purchase_count:get("SELECT COUNT(*) n FROM purchases WHERE status='active'").n,payment_count:get("SELECT COUNT(*) n FROM payments WHERE status='active'").n};}
  if(p==='/api/purchases'&&method==='GET')return all("SELECT p.*,s.code supplier_code,s.name supplier_name,i.invoice_number FROM purchases p JOIN suppliers s ON s.id=p.supplier_id LEFT JOIN invoices i ON i.id=p.invoice_id WHERE p.status='active' ORDER BY p.purchase_date DESC,p.id DESC LIMIT 1000");

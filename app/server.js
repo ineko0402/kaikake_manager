@@ -1,4 +1,4 @@
-// 買掛管理アプリ v0.1.2 — supplier master MVP
+// 買掛管理アプリ v0.5.0
 'use strict';
 const http = require('node:http');
 const fs = require('node:fs');
@@ -88,8 +88,9 @@ const server=http.createServer(async(req,res)=>{
    return send(res,200,saved);
   }
   if(req.method!=='GET')return send(res,405,{error:'許可されていない操作です'});
-  const files={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/style.css':'style.css','/supplier.html':'supplier.html','/supplier.js':'supplier.js'};
-  const file=files[url.pathname];if(!file){res.writeHead(404);return res.end('Not Found');}
+  const files={__proto__:null,'/':'index.html','/index.html':'index.html','/app.js':'app.js','/style.css':'style.css'};
+  const moduleFile=/^\/ui\/[a-z]+\.js$/.test(url.pathname) ? url.pathname.slice(1) : null;
+  const file=files[url.pathname] || moduleFile;if(!file || !fs.existsSync(path.join(ROOT,'public',file))){res.writeHead(404);return res.end('Not Found');}
   const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8'};
   res.writeHead(200,{'Content-Type':types[path.extname(file)],'Cache-Control':'no-store'});fs.createReadStream(path.join(ROOT,'public',file)).pipe(res);
  }catch(e){const status=Array.isArray(e)?e[0]:500;console.error(e);send(res,status,{error:Array.isArray(e)?e[1]:'処理に失敗しました。サーバーログを確認してください'});}
@@ -106,7 +107,7 @@ async function start(){
  }
  server.listen(PORT,'127.0.0.1',()=>{
   const port=server.address().port;
-  console.log(`買掛管理 v0.4.8: http://127.0.0.1:${port}`);
+  console.log(`買掛管理 v0.5.0: http://127.0.0.1:${port}`);
   process.send?.({port});
  });
 }
