@@ -167,6 +167,26 @@ try {
     assert.equal(await page.locator('header').evaluate((node) => node.getBoundingClientRect().top), 0);
     await page.locator('[data-page="invoices"]').click();
     const purchaseDetails = page.locator('#invoicePurchaseDetails');
+    for (const width of [960, 640]) {
+      await page.setViewportSize({ width, height: 720 });
+      const [button, panel] = await Promise.all(
+        ['#saveInvoice', '#invoices > .panel:visible'].map((selector) =>
+          page.locator(selector).boundingBox(),
+        ),
+      );
+      assert(button.x - panel.x < 24);
+      assert(button.x + button.width < width && button.y + button.height < 720);
+      assert(await page.locator('main').evaluate((main) => main.scrollWidth === main.clientWidth));
+    }
+    await page.locator('#saveInvoice').click();
+    assert.equal(await page.locator('#invoiceSaveStatus').innerText(), '仕入先を選択してください');
+    assert.equal(
+      await page
+        .locator('#invoiceForm [name=supplier_id]')
+        .evaluate((field) => field === document.activeElement),
+      true,
+    );
+    await page.setViewportSize({ width: 1280, height: 720 });
     const saveInvoice = await page.locator('#saveInvoice').boundingBox();
     const invoiceSearch = await page.locator('#invoiceSupplierSearch').boundingBox();
     assert(saveInvoice.y < invoiceSearch.y);
@@ -184,6 +204,18 @@ try {
     await supplierSearch.fill('テスト工業');
     assert.equal(await page.locator('#invoiceForm [name=supplier_id]').inputValue(), String(suppliers[0].id));
     assert.equal(await purchaseDetails.evaluate((node) => node.open), true);
+    await page.setViewportSize({ width: 640, height: 650 });
+    const main = page.locator('main');
+    await main.evaluate((node) => {
+      node.scrollTop = 280;
+    });
+    const stickyTop = await page.locator('#saveInvoice').evaluate((node) => node.getBoundingClientRect().top);
+    const mainTop = await main.evaluate((node) => node.getBoundingClientRect().top);
+    assert(stickyTop >= mainTop && stickyTop < mainTop + 32);
+    await main.evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await page.setViewportSize({ width: 1280, height: 720 });
     await page.locator('#chooseVisible').click();
     await purchaseDetails.locator('summary').click();
     assert.equal(await page.locator('#chosenSummary').isVisible(), true);
@@ -482,7 +514,10 @@ try {
     await page.locator('#invoicePurchaseDetails select[aria-label="期間"]').selectOption('all');
     await page.locator('#purchaseChoices tr').filter({ hasText: 'FLOW-PURCHASE' }).locator('input').check();
     await page.locator('#saveInvoice').click();
-    await page.getByText(/INVOICE #.*登録しました/).waitFor();
+    await page
+      .locator('#invoiceSaveStatus')
+      .getByText(/INVOICE #.*登録しました/)
+      .waitFor();
     const flowInvoice = (await api('invoices')).find((row) => row.invoice_number === 'FLOW-INVOICE');
     assert.equal(flowInvoice.purchase_count, 1);
     await page.locator('[data-page="workflow"]').click();

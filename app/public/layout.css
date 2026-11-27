@@ -376,3 +376,27 @@ body .tabs {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.invoice-savebar {
+  gap: 8px 12px;
+  margin-bottom: 12px;
+  background: white;
+}
+
+#invoiceSaveStatus {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1024px) {
+  .invoice-savebar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding-block: 6px;
+  }
+
+  #invoiceForm :is(input, select) {
+    scroll-margin-top: 60px;
+  }
+}

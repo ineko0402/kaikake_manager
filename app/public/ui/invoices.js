@@ -42,7 +42,30 @@ export function invoices(component, model, today, filterStates) {
   component.on(form.elements.supplier_id, 'change', 'invoiceSupplier', changeSupplier);
   const msg = (text, error = false) => component.emit('status', { text, error });
   const refresh = () => component.emit('refresh');
+  function saveStatus(text, error = false) {
+    view.render({ invoiceSaveStatus: { text, className: error ? 'error' : '' } });
+  }
+  for (const field of form.elements) {
+    if (!field.required) continue;
+    component.on(field, 'invalid', 'showMissingInvoiceField', () => {
+      if (form.querySelector(':invalid') !== field) return;
+      const names = {
+        supplier_id: '仕入先',
+        invoice_number: 'INVOICE番号',
+        invoice_date: 'INVOICE日付',
+        total: '請求総額',
+      };
+      const name = names[field.name];
+      saveStatus(
+        name
+          ? name + (field.tagName === 'SELECT' ? 'を選択してください' : 'を入力してください')
+          : field.validationMessage,
+        true,
+      );
+    });
+  }
   component.on($('invoiceForm'), 'submit', 'saveInvoice', async (e) => {
+    saveStatus('');
     try {
       let v = values(e.target);
       v.purchase_ids = [...chosenPurchases.ids()];
@@ -51,7 +74,7 @@ export function invoices(component, model, today, filterStates) {
         if (!view.confirm(d.warnings.join('\n') + '\n登録しますか？')) return;
         d = await post('/api/invoices', { ...v, override: true });
       }
-      msg('INVOICE #' + d.id + ' を登録しました');
+      saveStatus('INVOICE #' + d.id + ' を登録しました');
       e.target.reset();
       e.target.elements.supplier_id.value = v.supplier_id;
       e.target.elements.invoice_date.value = today;
@@ -63,7 +86,7 @@ export function invoices(component, model, today, filterStates) {
       renderPurchaseChoices();
       updateDifference(e.target, e.target.elements.currency.value);
     } catch (e) {
-      msg(e.message, true);
+      saveStatus(e.message, true);
     }
   });
   component.on($('closeInvoiceEdit'), 'click', 'closeInvoiceEdit', () => {
