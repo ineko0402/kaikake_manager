@@ -335,7 +335,11 @@ try {
     await page.locator('#closeVoucher').click();
     await page.locator('[data-page="payments"]').click();
     await page.getByRole('button', { name: '新しい決済' }).click();
-    await page.locator('#paymentForm [name=supplier_id]').selectOption(String(suppliers[0].id));
+    const paymentSupplier = page.locator('#paymentSupplierSearch');
+    await paymentSupplier.fill('Ｔ００１');
+    await paymentSupplier.press('ArrowDown');
+    await paymentSupplier.press('Enter');
+    assert.equal(await paymentSupplier.inputValue(), 'T001 テスト商事');
     const [fields, allocations, submit] = await Promise.all(
       ['.payment-fields', '.payment-allocation', '#paymentForm button[type=submit]'].map((selector) =>
         page.locator(selector).boundingBox(),
@@ -350,6 +354,11 @@ try {
       .nth(2)
       .click({ modifiers: ['Shift'] });
     assert.match(await page.locator('#allocSummary').innerText(), /選択 3件/);
+    await paymentSupplier.fill('T002');
+    assert.equal(await paymentSupplier.evaluate((field) => field.validity.valid), false);
+    assert.match(await page.locator('#allocSummary').innerText(), /選択 3件/);
+    await paymentSupplier.press('Escape');
+    assert.equal(await paymentSupplier.inputValue(), 'T001 テスト商事');
     await page.locator('#paymentForm .filterbar input[type=search]').fill('no match');
     assert.match(await page.locator('#allocSummary').innerText(), /表示範囲外 3件/);
     const paymentReview = page.waitForEvent('dialog');
@@ -360,6 +369,9 @@ try {
     await reviewClick;
     await page.locator('#allocClear').click();
     assert.match(await page.locator('#allocSummary').innerText(), /選択 0件/);
+    await paymentSupplier.fill('T002');
+    await page.getByRole('option', { name: 'T002 テスト工業' }).click();
+    assert.equal(await page.locator('#paymentForm [name=currency]').inputValue(), 'JPY');
 
     await page.locator('[data-page="transfers"]').click();
     await page.locator('#actualTab').click();

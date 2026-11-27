@@ -1,6 +1,5 @@
 import { Component } from './ui/component.js';
 import { api } from './ui/api.js';
-import { esc } from './ui/presenter.js';
 import { tabs } from './ui/tabs.js';
 import { filters } from './ui/filters.js';
 import { purchases } from './ui/purchases.js';
@@ -126,18 +125,6 @@ class AppMediator {
     const lists = await Promise.all(keys.map((key) => api('/api/' + key)));
     if (request !== this.#load) return;
     for (const [index, key] of keys.entries()) model[key] = lists[index];
-    const options =
-      '<option value="">選択してください</option>' +
-      model.suppliers
-        .map(
-          (supplier) => `<option value="${supplier.id}">${esc(supplier.code + ' ' + supplier.name)}</option>`,
-        )
-        .join('');
-    for (const select of this.#root.view.all('select.suppliers')) {
-      const selected = select.value;
-      select.innerHTML = options;
-      select.value = selected;
-    }
     for (const name of ['dashboard', 'purchases', 'invoices', 'payments', 'supplier'])
       this.#screens[name].render();
     this.#filters.apply();

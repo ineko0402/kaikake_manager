@@ -427,13 +427,13 @@ body > header > div {
   display: none;
 }
 
-#invoiceForm .supplier-picker {
+.supplier-picker {
   display: block;
   position: relative;
   max-width: 460px;
 }
 
-#invoiceSupplierOptions {
+.supplier-picker [role='listbox'] {
   position: absolute;
   inset-inline: 0;
   z-index: 2;
@@ -444,7 +444,7 @@ body > header > div {
   background: white;
 }
 
-#invoiceSupplierOptions button {
+.supplier-picker [role='listbox'] button {
   display: block;
   width: 100%;
   text-align: left;
@@ -452,14 +452,18 @@ body > header > div {
   border-radius: 0;
 }
 
-#invoiceSupplierOptions button:is(:hover, [aria-selected='true']) {
+.supplier-picker [role='listbox'] button:is(:hover, [aria-selected='true']) {
   background: #dce8f6;
 }
 
-#invoiceSupplierCount {
+.supplier-picker [role='status'] {
   display: block;
 }
 
-#invoiceSupplierCount:empty {
+.supplier-picker [role='status']:empty {
   display: none;
+}
+
+.payment-fields > .supplier-picker {
+  grid-column: 1 / -1;
 }

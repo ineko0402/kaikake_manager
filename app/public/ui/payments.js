@@ -1,3 +1,4 @@
+import { supplierPicker } from './supplierpicker.js';
 import { inPeriod, updatePeriodControls } from './filters.js';
 import { Selection } from './selection.js';
 import { api, post } from './api.js';
@@ -9,6 +10,7 @@ export function payments(component, model, today, filterStates) {
   const values = (form) => view.readForm(form);
   const msg = (text, error = false) => component.emit('status', { text, error });
   const refresh = () => component.emit('refresh');
+  const supplier = supplierPicker(component, $('paymentSupplierPicker'), () => model.suppliers);
   component.on($('paymentForm'), 'submit', 'savePayment', async (e) => {
     try {
       let v = values(e.target);
@@ -17,7 +19,7 @@ export function payments(component, model, today, filterStates) {
         amount,
       }));
       if (!v.allocations.length) return msg('充当するINVOICEを選択してください', true);
-      const supplier = model.suppliers.find((row) => row.id === Number(v.supplier_id));
+      const payee = model.suppliers.find((row) => row.id === Number(v.supplier_id));
       const lines = v.allocations.map(({ invoice_id, amount }) => {
         const invoice = model.invoices.find((row) => row.id === invoice_id);
         return `${invoice?.invoice_number ?? invoice_id}　${amount} ${v.currency}`;
@@ -28,7 +30,7 @@ export function payments(component, model, today, filterStates) {
           [
             'この内容で決済を確定しますか？',
             '',
-            `${supplier?.name ?? ''} ／ ${method} ／ ${v.payment_date}`,
+            `${payee?.name ?? ''} ／ ${method} ／ ${v.payment_date}`,
             `決済総額 ${v.amount} ${v.currency}`,
             '',
             `充当先 ${lines.length}件`,
@@ -41,6 +43,7 @@ export function payments(component, model, today, filterStates) {
       msg('決済 #' + d.id + ' を登録しました');
       allocationSelected.clear();
       e.target.reset();
+      supplier.restoreSelection();
       e.target.elements.payment_date.value = today;
       await refresh();
     } catch (e) {
@@ -189,6 +192,7 @@ export function payments(component, model, today, filterStates) {
   component.on($('paymentForm').elements.method, 'change', 'changePaymentMethod', renderAllocationChoices);
 
   function render() {
+    supplier.refresh();
     view.render({ adjustmentTable: { html: adjustmentTable(model.adjustments) } });
     view.render({ paymentTable: { html: paymentTable(model.payments) } });
     view.all('.cancelAdjustment').forEach((b) =>

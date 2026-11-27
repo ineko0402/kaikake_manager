@@ -1,3 +1,4 @@
+import { supplierPicker } from './supplierpicker.js';
 import { inPeriod, updatePeriodControls } from './filters.js';
 import { Selection } from './selection.js';
 import { api, post } from './api.js';
@@ -8,107 +9,7 @@ export function invoices(component, model, today, filterStates) {
   const $ = (id) => view.find(id);
   const values = (form) => view.readForm(form);
   const form = $('invoiceForm');
-  const search = $('invoiceSupplierSearch');
-  const supplierPicker = component.child('invoiceSupplierSearch', search.closest('.supplier-picker'));
-  const options = $('invoiceSupplierOptions');
-  const supplierId = form.elements.supplier_id;
-  const supplierLabel = (supplier) => supplier.code + ' ' + supplier.name;
-  const normalized = (value) => value.normalize('NFKC').trim().toLowerCase();
-  const selectedSupplier = () => model.suppliers.find((row) => String(row.id) === supplierId.value);
-  let activeOption = -1;
-
-  function closeSupplierOptions() {
-    options.hidden = true;
-    search.setAttribute('aria-expanded', 'false');
-    search.removeAttribute('aria-activedescendant');
-    activeOption = -1;
-  }
-  function setSupplierValidity() {
-    const selected = selectedSupplier();
-    search.setCustomValidity(
-      selected && search.value === supplierLabel(selected) ? '' : '仕入先を候補から選択してください',
-    );
-  }
-  function selectSupplier(supplier) {
-    const changed = supplierId.value !== String(supplier.id);
-    supplierId.value = supplier.id;
-    search.value = supplierLabel(supplier);
-    setSupplierValidity();
-    $('invoiceSupplierCount').textContent = '';
-    closeSupplierOptions();
-    if (changed) supplierId.dispatchEvent(new Event('change'));
-  }
-  function renderSupplierOptions() {
-    if (document.activeElement !== search) return;
-    const terms = normalized(
-      selectedSupplier() && search.value === supplierLabel(selectedSupplier()) ? '' : search.value,
-    )
-      .split(/\s+/)
-      .filter(Boolean);
-    const matches = model.suppliers.filter((supplier) =>
-      terms.every((term) => normalized(supplierLabel(supplier)).includes(term)),
-    );
-    options.replaceChildren();
-    activeOption = -1;
-    search.removeAttribute('aria-activedescendant');
-    for (const supplier of matches) {
-      const option = view.create('button');
-      option.type = 'button';
-      option.id = 'invoice-supplier-' + supplier.id;
-      option.setAttribute('role', 'option');
-      option.setAttribute('aria-selected', String(String(supplier.id) === supplierId.value));
-      option.tabIndex = -1;
-      option.textContent = supplierLabel(supplier);
-      supplierPicker.on(option, 'mousedown', 'keepSupplierFocus', (input) => input.preventDefault());
-      supplierPicker.on(option, 'click', 'chooseSupplier', () => selectSupplier(supplier));
-      options.append(option);
-    }
-    options.hidden = !matches.length;
-    search.setAttribute('aria-expanded', String(!options.hidden));
-    $('invoiceSupplierCount').textContent = terms.length ? matches.length + '件一致' : '';
-  }
-  supplierPicker.on(search, 'focus', 'openSupplierOptions', renderSupplierOptions);
-  supplierPicker.on(search, 'blur', 'closeSupplierOptions', closeSupplierOptions);
-  supplierPicker.on(search, 'input', 'filterInvoiceSuppliers', () => {
-    // Keep any existing selection until another supplier is chosen, so corrections do not clear row choices.
-    setSupplierValidity();
-    renderSupplierOptions();
-  });
-  supplierPicker.on(search, 'keydown', 'moveSupplierFocus', (input) => {
-    if (input.isComposing) return;
-    if (input.key === 'Escape') {
-      const selected = selectedSupplier();
-      if (selected) selectSupplier(selected);
-      closeSupplierOptions();
-      input.preventDefault();
-      return;
-    }
-    if (input.key === 'Enter' && !options.hidden) {
-      input.preventDefault();
-      const option =
-        options.children[activeOption] ?? (options.children.length === 1 ? options.firstChild : null);
-      option?.click();
-      return;
-    }
-    if (input.key !== 'ArrowDown' && input.key !== 'ArrowUp') return;
-    input.preventDefault();
-    if (options.hidden) renderSupplierOptions();
-    if (!options.children.length) return;
-    const length = options.children.length;
-    activeOption =
-      activeOption < 0
-        ? input.key === 'ArrowDown'
-          ? 0
-          : length - 1
-        : (activeOption + (input.key === 'ArrowDown' ? 1 : -1) + length) % length;
-    for (const [index, option] of Array.from(options.children).entries()) {
-      option.setAttribute('aria-selected', String(index === activeOption));
-    }
-    const option = options.children[activeOption];
-    search.setAttribute('aria-activedescendant', option.id);
-    option.scrollIntoView({ block: 'nearest' });
-  });
-  setSupplierValidity();
+  const supplier = supplierPicker(component, $('invoiceSupplierPicker'), () => model.suppliers);
   const changeSupplier = () => {
     const supplier = model.suppliers.find((row) => row.id === Number(form.elements.supplier_id.value));
     if (
@@ -137,8 +38,8 @@ export function invoices(component, model, today, filterStates) {
       };
       const name = names[field.name];
       saveStatus(
-        field === search
-          ? search.validationMessage
+        field === supplier.input
+          ? field.validationMessage
           : name
             ? name + (field.tagName === 'SELECT' ? 'を選択してください' : 'を入力してください')
             : field.validationMessage,
@@ -158,10 +59,8 @@ export function invoices(component, model, today, filterStates) {
       }
       saveStatus('INVOICE #' + d.id + ' を登録しました');
       e.target.reset();
-      supplierId.value = v.supplier_id;
-      const supplier = selectedSupplier();
-      if (supplier) search.value = supplierLabel(supplier);
-      setSupplierValidity();
+      form.elements.supplier_id.value = v.supplier_id;
+      supplier.restoreSelection();
       e.target.elements.invoice_date.value = today;
       chosenPurchases.clear();
       choiceSupplier = null;
@@ -431,7 +330,7 @@ export function invoices(component, model, today, filterStates) {
     msg('仕入日 ' + d + ' を適用しました');
   });
   function render() {
-    if (!options.hidden) renderSupplierOptions();
+    supplier.refresh();
     view.render({ invoiceTable: { html: invoiceTable(model.invoices) } });
     view.all('.editInvoice').forEach((b) =>
       component.on(b, 'click', 'editInvoice', () => {
