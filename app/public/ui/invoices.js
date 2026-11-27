@@ -1,7 +1,7 @@
 import { inPeriod, updatePeriodControls } from './filters.js';
 import { Selection } from './selection.js';
 import { api, post } from './api.js';
-import { esc, table, td, money, minorText, invoiceTable } from './presenter.js';
+import { esc, table, td, money, minorText, invoiceTable, invoiceReferenceRate } from './presenter.js';
 export function invoices(component, model, today, filterStates) {
   const view = component.view;
   const selection = component.child('purchaseSelection', view.find('purchaseChoices'));
@@ -248,6 +248,18 @@ export function invoices(component, model, today, filterStates) {
     $('applyPurchaseDate').disabled = !date;
     $('applyPurchaseDate').textContent = date ? `仕入日 ${date} を適用` : '仕入日を適用';
     const raw = f.elements.total.value.trim().replace(/,/g, '');
+    const currency = f.elements.currency.value;
+    const validForeignTotal = /^-?\d+(?:\.\d{1,2})?$/.test(raw);
+    const rate =
+      rows.length && validForeignTotal
+        ? invoiceReferenceRate(sum, Math.round(Number(raw) * 100), currency)
+        : '';
+    view.render({
+      invoiceReferenceRate: {
+        hidden: !rate,
+        text: rate ? '参考レート（紐付け仕入合計 ÷ 請求総額） ' + rate : '',
+      },
+    });
     $('purchaseDifference').textContent =
       f.elements.currency.value === 'JPY' &&
       rows.length &&
@@ -258,6 +270,7 @@ export function invoices(component, model, today, filterStates) {
   }
   component.on($('onlyChosen'), 'change', 'showSelectedPurchases', renderPurchaseChoices);
   component.on($('invoiceForm'), 'input', 'updatePurchaseSummary', updatePurchaseSummary);
+  component.on($('invoiceForm').elements.currency, 'change', 'updateInvoiceRate', updatePurchaseSummary);
   component.on($('applyPurchaseDate'), 'click', 'applyPurchaseDate', () => {
     const d = selectedPurchases()
       .map((p) => p.purchase_date)

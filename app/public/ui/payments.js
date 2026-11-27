@@ -10,7 +10,7 @@ export function payments(component, model, today, filterStates) {
   const values = (form) => view.readForm(form);
   const msg = (text, error = false) => component.emit('status', { text, error });
   const refresh = () => component.emit('refresh');
-  const worksheet = voucherWorksheet(component);
+  voucherWorksheet(component, today);
   component.on($('paymentForm'), 'submit', 'savePayment', async (e) => {
     try {
       let v = values(e.target);
@@ -193,7 +193,6 @@ export function payments(component, model, today, filterStates) {
   function render() {
     view.render({ adjustmentTable: { html: adjustmentTable(model.adjustments) } });
     view.render({ paymentTable: { html: paymentTable(model.payments) } });
-    worksheet.bindRows();
     view.all('.cancelAdjustment').forEach((b) =>
       component.on(b, 'click', 'cancelAdjustment', async () => {
         const reason = view.prompt('差額調整の取消理由');

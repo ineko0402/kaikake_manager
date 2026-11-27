@@ -73,7 +73,10 @@ try {
   const payments = await api('payments');
   const originalTransfer = payments.find((row) => row.method === 'transfer' && row.status === 'active');
   const cancelledTransfer = payments.find((row) => row.status === 'cancelled');
-  const worksheet = await api(`payments/${originalTransfer.id}/worksheet`);
+  const monthly = await api('payments/worksheet?month=2026-11');
+  assert.equal(monthly.length, 3);
+  assert(monthly.every((row) => row.id !== cancelledTransfer.id && row.payment_date.startsWith('2026-11')));
+  const worksheet = monthly.find((row) => row.id === originalTransfer.id);
   assert.equal(worksheet.amount_minor, 8000);
   assert.deepEqual(
     worksheet.allocations.map((row) => [row.invoice_number, row.amount_minor]),
@@ -82,10 +85,11 @@ try {
       ['TEST-RETURN-USED', -2000],
     ],
   );
-  const advance = payments.find((row) => row.method === 'advance');
-  const advanceWorksheet = await api(`payments/${advance.id}/worksheet`);
-  assert.equal(advanceWorksheet.remaining_minor, 15000);
-  assert.equal((await fetch(base + '/api/payments/' + cancelledTransfer.id + '/worksheet')).status, 404);
+  assert.equal(worksheet.allocations[0].invoice_jpy, 30000);
+  assert.equal(worksheet.allocations[0].invoice_total_minor, 20000);
+  assert.equal(monthly.find((row) => row.method === 'advance').remaining_minor, 15000);
+  assert.deepEqual(await api('payments/worksheet?month=2025-11'), []);
+  assert.equal((await fetch(base + '/api/payments/worksheet?month=2026-13')).status, 400);
   const registered = await api('purchases/import', {
     text: 'T001\tCHECK-ORDER\t2026-11-08\t700',
   });
@@ -154,6 +158,14 @@ try {
     await page.locator('#chooseVisible').click();
     await purchaseDetails.locator('summary').click();
     assert.equal(await page.locator('#chosenSummary').isVisible(), true);
+    const invoiceTotal = page.locator('#invoiceForm [name=total]');
+    await invoiceTotal.fill('150.00');
+    assert.match(await page.locator('#invoiceReferenceRate').innerText(), /60 円 \/ USD/);
+    await invoiceTotal.fill('0');
+    assert.equal(await page.locator('#invoiceReferenceRate').isVisible(), false);
+    await invoiceTotal.fill('150.00');
+    await page.locator('#invoiceForm [name=currency]').selectOption('JPY');
+    assert.equal(await page.locator('#invoiceReferenceRate').isVisible(), false);
     assert.match(await page.locator('#chosenSummary').innerText(), /選択 1件/);
 
     await page.locator('[data-page="payments"]').click();
@@ -164,13 +176,16 @@ try {
     assert.equal(await page.locator('#adjustmentTable').isVisible(), true);
     await page.getByRole('button', { name: '決済履歴', exact: true }).click();
     assert.equal(await page.locator('#paymentTable').isVisible(), true);
-    assert.equal(await page.locator(`.printWorksheet[data-id="${cancelledTransfer.id}"]`).count(), 0);
-    await page.locator(`.printWorksheet[data-id="${originalTransfer.id}"]`).click();
+    await page.locator('#voucherMonth').fill('2026-11');
+    await page.locator('#openVoucher').click();
     await page.locator('#voucherDialog').waitFor({ state: 'visible' });
     const sheet = page.locator('#voucherSheet');
     assert.match(await sheet.innerText(), /TEST-RETURN-USED/);
     assert.match(await sheet.innerText(), /80\.00 USD/);
-    assert.equal(await sheet.locator('table').first().locator('tbody tr').count(), 4);
+    assert.match(await sheet.innerText(), /2026年11月　決済 3件/);
+    assert.match(await sheet.innerText(), /参考 150 円 \/ USD/);
+    assert.equal(await sheet.locator('table').first().locator('tbody tr').count(), 3);
+    assert.equal(await sheet.locator('table').last().locator('tbody tr').count(), 3);
     await page.evaluate(() => {
       window.print = () => {
         document.body.dataset.printInvoked = 'yes';
@@ -184,13 +199,17 @@ try {
     assert.equal(await sheet.isVisible(), true);
     if (process.env.KAIKAKE_WORKSHEET_PDF) {
       await page.pdf({ path: process.env.KAIKAKE_WORKSHEET_PDF, preferCSSPageSize: true, tagged: true });
-      await sheet.locator('table').nth(1).locator('tbody').evaluate((body) => {
-        for (let index = 0; index < 90; index++) {
-          const row = body.rows[0].cloneNode(true);
-          row.cells[0].textContent = 'PRINT-ROW-' + index;
-          body.append(row);
-        }
-      });
+      await sheet
+        .locator('table')
+        .nth(1)
+        .locator('tbody')
+        .evaluate((body) => {
+          for (let index = 0; index < 90; index++) {
+            const row = body.rows[0].cloneNode(true);
+            row.cells[0].textContent = 'PRINT-ROW-' + index;
+            body.append(row);
+          }
+        });
       await page.pdf({ path: process.env.KAIKAKE_WORKSHEET_PDF + '.long.pdf', preferCSSPageSize: true });
     }
     await page.emulateMedia({ media: 'screen' });
