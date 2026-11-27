@@ -137,3 +137,47 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+#invoicePurchaseDetails[hidden],
+#paymentAllocation[hidden],
+#paymentStartHint[hidden],
+#transferReview[hidden] {
+  display: none;
+}
+
+.payment-options {
+  grid-column: 1 / -1;
+}
+
+.payment-options > label {
+  margin-top: 8px;
+}
+
+#invoicePurchaseDetails > summary strong {
+  margin-inline-start: 8px;
+  font-size: 0.9em;
+}
+
+.transfer-help,
+#transferReview,
+#backup details {
+  margin-block: 10px;
+}
+
+#dashLinks {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+summary {
+  cursor: pointer;
+}
+
+.flowCard strong {
+  align-self: center;
+}
+
+.flowCard b {
+  grid-row: 1;
+}

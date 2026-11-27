@@ -1,5 +1,5 @@
 import { api, post } from './api.js';
-import { minorText, transferTable, transferHistory } from './presenter.js';
+import { money, minorText, transferTable, transferHistory } from './presenter.js';
 export function transfers(component, model, today) {
   const view = component.view;
   const $ = (id) => view.find(id);
@@ -85,13 +85,30 @@ export function transfers(component, model, today) {
       }));
     const date = $('transferPaymentDate').value;
     if (!date) return msg('実際の送金日を入力してください', true);
-    if (
-      !view.confirm(
-        `${items.length}件のINVOICEを ${date} 付で送金確定します。\n差引0の場合は返品充当のみ記録します。正の送金額は銀行送金実施後に確定してください。`,
-      )
-    )
-      return;
     try {
+      const groups = remittanceGroups();
+      const totals = new Map();
+      for (const group of groups) totals.set(group.currency, (totals.get(group.currency) ?? 0) + group.total);
+      const lines = groups.map((group) => {
+        const returns = group.items.filter((row) => row.amount < 0).reduce((sum, row) => sum + row.amount, 0);
+        const deduction = returns ? `（返品 ${money(returns, group.currency)}を含む）` : '';
+        return `${group.payee}　${money(group.total, group.currency)}${deduction}`;
+      });
+      if (
+        !view.confirm(
+          [
+            `${date} 付の送金として確定しますか？`,
+            '',
+            `対象INVOICE ${items.length}件`,
+            ...lines,
+            '',
+            '通貨別合計　' + [...totals].map(([currency, amount]) => money(amount, currency)).join(' ／ '),
+            '',
+            '差引0は返品充当のみ記録します。正額の送金は銀行で実施後に確定してください。',
+          ].join('\n'),
+        )
+      )
+        return;
       const d = await post('/api/transfers/confirm', {
         payment_date: date,
         items,
@@ -270,6 +287,7 @@ export function transfers(component, model, today) {
       .join(' ');
   }
   function renderRemittance() {
+    $('transferReview').hidden = !selected.size;
     const root = $('remittanceCards');
     root.replaceChildren();
     let groups;

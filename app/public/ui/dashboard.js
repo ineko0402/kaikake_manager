@@ -17,7 +17,7 @@ export function dashboard(component, model, today) {
       Object.entries(totals)
         .map(([c, n]) => esc(money(n, c)))
         .join(' / ') +
-      '</p><button id="dashMonth">送金一覧へ（' +
+      '</p><button class="action" id="dashMonth">今月の送金予定（' +
       month.length +
       '件）</button><p id="dashLinks"></p>';
     component.on($('dashMonth'), 'click', 'openCurrentTransfers', () => {
@@ -35,6 +35,7 @@ export function dashboard(component, model, today) {
           .length,
       ],
     ]) {
+      if (!n) continue;
       const b = view.create('button');
       b.textContent = label + ' ' + n + '件';
       component.on(b, 'click', 'openDashboardDetail', () =>
