@@ -159,13 +159,16 @@ export function supplier(component, model) {
 
   const tabs = view.create('div');
   tabs.className = 'tabs';
-  tabs.innerHTML = '<button type="button">仕入先登録</button><button type="button">仕入先管理</button>';
+  tabs.innerHTML = '<button type="button">新規登録</button><button type="button">仕入先一覧</button>';
   view.scope.querySelector('h1').after(tabs);
   function supplierTab(n) {
     view.scope.querySelector('.listpanel').style.display = n ? '' : 'none';
     view.scope.querySelector('.editor').style.display = n ? 'none' : '';
     view.scope.querySelector('.content').classList.toggle('registration', n === 0);
-    [...tabs.children].forEach((button, index) => button.classList.toggle('active', index === n));
+    [...tabs.children].forEach((button, index) => {
+      button.classList.toggle('active', index === n);
+      button.setAttribute('aria-pressed', String(index === n));
+    });
   }
   component.on(tabs.children[0], 'click', 'supplierRegistrationTab', () => {
     if (confirmDiscard()) {

@@ -3,9 +3,19 @@ export function tabs(component) {
   const $ = (id) => view.find(id);
   const tabState = {};
   const tabConfig = {
-    purchases: ['仕入登録', '仕入管理', [0], [1, 2]],
-    invoices: ['INVOICE登録', 'INVOICE管理', [0], [1, 2]],
-    payments: ['決済登録', '決済管理', [0, 2, 3], [1, 4]],
+    purchases: [
+      ['Excel取り込み', [0]],
+      ['仕入明細', [1, 2]],
+    ],
+    invoices: [
+      ['新しいINVOICE', [0]],
+      ['登録済みINVOICE', [1, 2]],
+    ],
+    payments: [
+      ['新しい決済', [0]],
+      ['決済履歴', [1]],
+      ['前払・差額調整', [2, 3, 4]],
+    ],
   };
   for (const [id, c] of Object.entries(tabConfig)) {
     const section = $(id),
@@ -13,9 +23,9 @@ export function tabs(component) {
     const tabs = view.create('div');
     tabs.className = 'tabs';
     section.querySelector('h1').after(tabs);
-    for (let n = 0; n < 2; n++) {
+    for (const [n, [label]] of c.entries()) {
       const b = view.create('button');
-      b.textContent = c[n];
+      b.textContent = label;
       component.on(b, 'click', 'changeTab', () => {
         setTab(id, n);
         component.emit('filter');
@@ -28,11 +38,14 @@ export function tabs(component) {
   function setTab(id, n) {
     const t = tabState[id];
     if (!t) return;
-    t.n = n;
+    if (!t.c[n]) return;
     t.panels.forEach((p, i) => {
-      p.style.display = t.c[n + 2].includes(i) ? '' : 'none';
+      p.style.display = t.c[n][1].includes(i) ? '' : 'none';
     });
-    [...t.tabs.children].forEach((b, i) => b.classList.toggle('active', i === n));
+    [...t.tabs.children].forEach((b, i) => {
+      b.classList.toggle('active', i === n);
+      b.setAttribute('aria-pressed', String(i === n));
+    });
   }
   return { set: setTab };
 }

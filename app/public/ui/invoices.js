@@ -153,7 +153,10 @@ export function invoices(component, model, today, filterStates) {
     const sid = Number($('invoiceForm').elements.supplier_id.value),
       st = filterStates.purchaseChoices;
     const candidates = model.purchases.filter((p) => !p.invoice_id && p.supplier_id === sid);
+    const details = $('invoicePurchaseDetails');
+    details.hidden = !sid;
     if (choiceSupplier !== sid) {
+      details.open = false;
       choiceSupplier = sid;
       chosenPurchases.clear();
       $('onlyChosen').checked = false;
@@ -241,9 +244,9 @@ export function invoices(component, model, today, filterStates) {
       sum = rows.reduce((n, p) => n + p.amount_jpy, 0),
       date = rows.map((p) => p.purchase_date).sort()[0],
       f = $('invoiceForm');
-    $('chosenSummary').textContent =
-      `選択 ${rows.length}件 ／ ${money(sum, 'JPY')} ／ 最も早い仕入日：${date || '—'}`;
+    $('chosenSummary').textContent = `選択 ${rows.length}件 ／ ${money(sum, 'JPY')}`;
     $('applyPurchaseDate').disabled = !date;
+    $('applyPurchaseDate').textContent = date ? `仕入日 ${date} を適用` : '仕入日を適用';
     const raw = f.elements.total.value.trim().replace(/,/g, '');
     $('purchaseDifference').textContent =
       f.elements.currency.value === 'JPY' &&

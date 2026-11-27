@@ -16,6 +16,27 @@ export function payments(component, model, today, filterStates) {
         invoice_id,
         amount,
       }));
+      if (!v.allocations.length) return msg('充当するINVOICEを選択してください', true);
+      const supplier = model.suppliers.find((row) => row.id === Number(v.supplier_id));
+      const lines = v.allocations.map(({ invoice_id, amount }) => {
+        const invoice = model.invoices.find((row) => row.id === invoice_id);
+        return `${invoice?.invoice_number ?? invoice_id}　${amount} ${v.currency}`;
+      });
+      const method = e.target.elements.method.selectedOptions[0].textContent;
+      if (
+        !view.confirm(
+          [
+            'この内容で決済を確定しますか？',
+            '',
+            `${supplier?.name ?? ''} ／ ${method} ／ ${v.payment_date}`,
+            `決済総額 ${v.amount} ${v.currency}`,
+            '',
+            `充当先 ${lines.length}件`,
+            ...lines,
+          ].join('\n'),
+        )
+      )
+        return;
       let d = await post('/api/payments', v);
       msg('決済 #' + d.id + ' を登録しました');
       allocationSelected.clear();
@@ -72,6 +93,11 @@ export function payments(component, model, today, filterStates) {
       c = f.elements.currency.value,
       sid = Number(f.elements.supplier_id.value),
       only = $('onlyAlloc').checked;
+    view.render({
+      paymentAllocation: { hidden: !sid },
+      paymentStartHint: { hidden: Boolean(sid) },
+      reviewPayment: { hidden: !sid },
+    });
     const candidates = model.invoices.filter(
       (i) => i.supplier_id === sid && i.currency === c && i.remaining_minor !== 0,
     );

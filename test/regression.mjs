@@ -124,6 +124,8 @@ try {
     assert(await page.evaluate(() => document.documentElement.scrollHeight === innerHeight));
     assert.equal(await page.locator('header').evaluate((node) => node.getBoundingClientRect().top), 0);
     await page.locator('[data-page="invoices"]').click();
+    const purchaseDetails = page.locator('#invoicePurchaseDetails');
+    assert.equal(await purchaseDetails.isVisible(), false);
     const supplierSearch = page.locator('#invoiceSupplierSearch');
     await supplierSearch.fill('Ｔ００１ テスト商事');
     assert.equal(await page.locator('#invoiceSupplierCount').innerText(), '1件一致');
@@ -131,10 +133,22 @@ try {
     await page.locator('#invoiceForm [name=supplier_id]').selectOption(String(suppliers[0].id));
     await supplierSearch.fill('テスト工業');
     assert.equal(await page.locator('#invoiceForm [name=supplier_id]').inputValue(), String(suppliers[0].id));
+    assert.equal(await purchaseDetails.getAttribute('open'), null);
+    await purchaseDetails.locator('summary').click();
     await page.locator('#chooseVisible').click();
+    await purchaseDetails.locator('summary').click();
+    assert.equal(await page.locator('#chosenSummary').isVisible(), true);
     assert.match(await page.locator('#chosenSummary').innerText(), /選択 1件/);
 
     await page.locator('[data-page="payments"]').click();
+    assert.equal(await page.locator('#paymentAllocation').isVisible(), false);
+    assert.equal(await page.locator('#advanceForm').isVisible(), false);
+    await page.getByRole('button', { name: '前払・差額調整' }).click();
+    assert.equal(await page.locator('#advanceForm').isVisible(), true);
+    assert.equal(await page.locator('#adjustmentTable').isVisible(), true);
+    await page.getByRole('button', { name: '決済履歴', exact: true }).click();
+    assert.equal(await page.locator('#paymentTable').isVisible(), true);
+    await page.getByRole('button', { name: '新しい決済' }).click();
     await page.locator('#paymentForm [name=supplier_id]').selectOption(String(suppliers[0].id));
     const [fields, allocations, submit] = await Promise.all(
       ['.payment-fields', '.payment-allocation', '#paymentForm button[type=submit]'].map((selector) =>
@@ -152,6 +166,12 @@ try {
     assert.match(await page.locator('#allocSummary').innerText(), /選択 3件/);
     await page.locator('#paymentForm .filterbar input[type=search]').fill('no match');
     assert.match(await page.locator('#allocSummary').innerText(), /表示範囲外 3件/);
+    const paymentReview = page.waitForEvent('dialog');
+    const reviewClick = page.locator('#reviewPayment').click();
+    const decision = await paymentReview;
+    assert.match(decision.message(), /充当先 3件/);
+    await decision.dismiss();
+    await reviewClick;
     await page.locator('#allocClear').click();
     assert.match(await page.locator('#allocSummary').innerText(), /選択 0件/);
 
@@ -181,7 +201,7 @@ try {
       assert.deepEqual(route, ['selectRow', 'handler']);
     }
     const frame = (await page.locator('iframe').count()) ? page.frameLocator('iframe') : page;
-    assert.equal(await page.locator('#supplier .tabs button.active').innerText(), '仕入先管理');
+    assert.equal(await page.locator('#supplier .tabs button.active').innerText(), '仕入先一覧');
     await frame.locator('#list button').first().click();
     assert.match(await frame.locator('#editorTitle').innerText(), /T001/);
     await frame.locator('#form [name=message_prefix]').fill('CHECK ');
@@ -196,7 +216,9 @@ try {
     await page.locator('#planTab').click();
     await page.locator('#month').fill('2027-01');
     const unpaid = page.locator('#transferTable tr').filter({ hasText: 'TEST-UNPAID' });
+    assert.equal(await page.locator('#transferReview').isVisible(), false);
     await unpaid.locator('input[type=checkbox]').check();
+    assert.equal(await page.locator('#transferReview').isVisible(), true);
     const draft = page.locator('#remittanceCards textarea');
     assert.equal(await draft.inputValue(), 'CHECK TEST-UNPAID(60)');
     await draft.fill('edited message for regression');
@@ -206,8 +228,12 @@ try {
     assert.equal(await draft.inputValue(), 'CHECK TEST-UNPAID(20)');
     await draft.fill('edited message for regression');
     await page.locator('#transferPaymentDate').fill('2027-01-10');
-    page.once('dialog', (dialog) => dialog.accept());
-    await page.locator('#confirmTransfers').click();
+    const transferReview = page.waitForEvent('dialog');
+    const confirmClick = page.locator('#confirmTransfers').click();
+    const confirmation = await transferReview;
+    assert.match(confirmation.message(), /通貨別合計/);
+    await confirmation.accept();
+    await confirmClick;
     await page
       .getByText(/送金確定: 1件/)
       .waitFor()
@@ -233,6 +259,7 @@ try {
     await page.getByText('Browser regression case').waitFor();
     await page.locator('#feedbackSort').selectOption('oldest');
     assert.match(await page.locator('#feedbackList tbody tr').first().innerText(), /未対応要望/);
+    await page.locator('#feedbackOutput summary').click();
     await page.locator('#copyFeedback').click();
     const copied = await page.evaluate(() => navigator.clipboard.readText());
     assert.match(copied, /Browser regression case/);
